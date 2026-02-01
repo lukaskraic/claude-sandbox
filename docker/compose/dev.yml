@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: packages/server/Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - /run/user/1000/podman/podman.sock:/var/run/docker.sock:ro
+      - sandbox-data:/data
+    environment:
+      - DATA_DIR=/data/claude-sandbox
+      - WORKTREE_BASE=/data/worktrees
+      - CONTAINER_RUNTIME=podman
+
+  web:
+    build:
+      context: ../..
+      dockerfile: packages/web/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+
+volumes:
+  sandbox-data:
