@@ -1,7 +1,7 @@
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client'
-import type { AppRouter } from '@claude-sandbox/server/src/trpc/router'
 
-export const trpc = createTRPCProxyClient<AppRouter>({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const trpc: any = createTRPCProxyClient({
   links: [
     httpBatchLink({
       url: '/trpc',

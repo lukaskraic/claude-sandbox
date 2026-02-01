@@ -1,0 +1,1 @@
+{"@pnpm/allow-build":{"@parcel/watcher":"*","better-sqlite3":"*","cpu-features":"*","esbuild":"*","protobufjs":"*","ssh2":"*","vue-demi":"*"}}

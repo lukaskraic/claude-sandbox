@@ -1,7 +1,7 @@
 export interface ProjectGitConfig {
   remote: string
   defaultBranch: string
-  worktreeBase: string
+  worktreeBase?: string
 }
 
 export interface ProjectMount {

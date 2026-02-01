@@ -46,8 +46,8 @@ export class ContainerService {
     await new Promise<void>((resolve, reject) => {
       this.docker.modem.followProgress(
         stream,
-        (err) => err ? reject(err) : resolve(),
-        (event) => logger.debug('Pull progress', event)
+        (err: Error | null) => err ? reject(err) : resolve(),
+        (event: unknown) => logger.debug('Pull progress', event as Record<string, unknown>)
       )
     })
 
@@ -140,9 +140,10 @@ export class ContainerService {
       const portBindings = info.NetworkSettings.Ports || {}
 
       for (const [containerPort, bindings] of Object.entries(portBindings)) {
-        if (bindings && bindings.length > 0) {
+        const bindingsArray = bindings as Array<{ HostPort: string }> | null
+        if (bindingsArray && bindingsArray.length > 0) {
           const portNum = parseInt(containerPort.split('/')[0])
-          ports[portNum] = parseInt(bindings[0].HostPort)
+          ports[portNum] = parseInt(bindingsArray[0].HostPort)
         }
       }
 
