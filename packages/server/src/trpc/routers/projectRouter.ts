@@ -4,20 +4,48 @@ import type { Context } from '../context.js'
 
 const t = initTRPC.context<Context>().create()
 
+const serviceSchema = z.object({
+  type: z.enum(['postgres', 'mysql', 'redis', 'mongodb', 'elasticsearch']),
+  version: z.string(),
+  database: z.string().optional(),
+  user: z.string().optional(),
+  password: z.string().optional(),
+  initSqlFile: z.string().optional(),
+})
+
+const proxySchema = z.object({
+  http: z.string().optional(),
+  https: z.string().optional(),
+  noProxy: z.string().optional(),
+})
+
 const createProjectSchema = z.object({
   name: z.string().min(1).regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
   git: z.object({
-    remote: z.string().url(),
+    remote: z.string().min(1),  // Accepts HTTPS URLs and SSH git@... format
     defaultBranch: z.string().default('main'),
     worktreeBase: z.string().optional(),
   }),
   environment: z.object({
     baseImage: z.string(),
-    dockerfile: z.string().optional(),
-    services: z.array(z.string()).optional(),
+    runtimes: z.object({
+      java: z.string().optional(),
+      node: z.string().optional(),
+      python: z.string().optional(),
+      go: z.string().optional(),
+    }).optional(),
+    packages: z.array(z.string()).optional(),
+    tools: z.object({
+      npm: z.array(z.string()).optional(),
+      pip: z.array(z.string()).optional(),
+      custom: z.array(z.string()).optional(),
+    }).optional(),
+    services: z.array(serviceSchema).optional(),
+    setup: z.string().optional(),
     ports: z.array(z.string()).optional(),
     env: z.record(z.string()).optional(),
+    proxy: proxySchema.optional(),
   }),
   mounts: z.array(z.object({
     source: z.string(),
@@ -28,7 +56,6 @@ const createProjectSchema = z.object({
     claudeMd: z.string().optional(),
     permissions: z.array(z.string()).optional(),
   }).optional(),
-  setup: z.string().optional(),
 })
 
 const updateProjectSchema = createProjectSchema.partial()
@@ -73,5 +100,22 @@ export const projectRouter = t.router({
     .input(createProjectSchema)
     .mutation(({ ctx, input }) => {
       return ctx.services.projectService.validate(input)
+    }),
+
+  rebuildImage: t.procedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.services.projectService.get(input.id)
+      if (!project) {
+        throw new Error('Project not found')
+      }
+      const imageTag = await ctx.services.imageBuilderService.rebuildImage(project)
+      return { imageTag }
+    }),
+
+  getImageStatus: t.procedure
+    .input(z.object({ id: z.string() }))
+    .query(({ ctx, input }) => {
+      return ctx.services.imageBuilderService.getImageStatus(input.id)
     }),
 })

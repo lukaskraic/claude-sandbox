@@ -23,6 +23,11 @@ const router = createRouter({
       component: () => import('@/views/SessionsView.vue'),
     },
     {
+      path: '/projects/:projectId/sessions',
+      name: 'project-sessions',
+      component: () => import('@/views/SessionsView.vue'),
+    },
+    {
       path: '/sessions/:id',
       name: 'session-detail',
       component: () => import('@/views/SessionDetailView.vue'),

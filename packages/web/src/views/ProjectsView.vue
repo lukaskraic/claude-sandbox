@@ -34,7 +34,7 @@
         md="6"
         lg="4"
       >
-        <v-card :to="`/projects/${project.id}`">
+        <v-card :to="`/projects/${project.id}/sessions`">
           <v-card-title>{{ project.name }}</v-card-title>
           <v-card-subtitle>{{ project.environment.baseImage }}</v-card-subtitle>
           <v-card-text v-if="project.description">
@@ -45,6 +45,13 @@
               {{ project.git.defaultBranch }}
             </v-chip>
             <v-spacer />
+            <v-btn
+              icon="mdi-cog"
+              size="small"
+              variant="text"
+              :to="`/projects/${project.id}`"
+              @click.stop
+            />
             <v-btn
               icon="mdi-delete"
               size="small"

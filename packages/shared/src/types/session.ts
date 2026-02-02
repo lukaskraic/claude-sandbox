@@ -3,12 +3,15 @@ export type SessionStatus = 'pending' | 'starting' | 'running' | 'stopping' | 's
 export interface SessionWorktree {
   path: string
   branch: string
+  baseBranch?: string
   commit?: string
 }
 
 export interface SessionContainer {
   id: string
   ports: Record<number, number>
+  serviceContainers?: string[]  // IDs of sidecar service containers
+  networkId?: string
 }
 
 export interface Session {
@@ -18,6 +21,9 @@ export interface Session {
   status: SessionStatus
   worktree?: SessionWorktree
   container?: SessionContainer
+  claudeSourceUser?: string
+  gitUserName?: string
+  gitUserEmail?: string
   error?: string
   createdAt: Date
   updatedAt: Date
@@ -27,6 +33,9 @@ export interface Session {
 export interface CreateSessionInput {
   name: string
   branch?: string
+  claudeSourceUser?: string
+  gitUserName?: string
+  gitUserEmail?: string
 }
 
 export interface SessionLogs {

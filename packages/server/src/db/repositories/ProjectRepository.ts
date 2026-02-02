@@ -37,7 +37,6 @@ export class ProjectRepository {
       environment: input.environment,
       mounts: input.mounts,
       claude: input.claude,
-      setup: input.setup,
     })
 
     this.db.prepare(`
@@ -58,7 +57,6 @@ export class ProjectRepository {
       environment: input.environment ? { ...existing.environment, ...input.environment } : existing.environment,
       mounts: input.mounts ?? existing.mounts,
       claude: input.claude ?? existing.claude,
-      setup: input.setup ?? existing.setup,
     })
 
     this.db.prepare(`
@@ -90,7 +88,6 @@ export class ProjectRepository {
       environment: config.environment,
       mounts: config.mounts,
       claude: config.claude,
-      setup: config.setup,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     }

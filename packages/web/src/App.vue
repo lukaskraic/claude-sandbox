@@ -1,23 +1,17 @@
 <template>
   <v-app>
     <v-app-bar color="primary" density="compact">
+      <v-app-bar-nav-icon @click="drawer = !drawer" />
       <v-app-bar-title>Claude Sandbox</v-app-bar-title>
-      <template #append>
-        <v-btn icon="mdi-github" href="https://github.com" target="_blank" />
-      </template>
     </v-app-bar>
 
-    <v-navigation-drawer permanent>
+    <v-navigation-drawer v-model="drawer" temporary>
       <v-list nav>
         <v-list-item
           prepend-icon="mdi-folder-multiple"
           title="Projects"
           to="/projects"
-        />
-        <v-list-item
-          prepend-icon="mdi-console"
-          title="Sessions"
-          to="/sessions"
+          @click="drawer = false"
         />
       </v-list>
     </v-navigation-drawer>
@@ -29,4 +23,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+
+const drawer = ref(false)
 </script>

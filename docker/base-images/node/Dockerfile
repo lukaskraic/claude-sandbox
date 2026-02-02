@@ -1,12 +1,38 @@
-FROM node:20-bookworm
+FROM node:20-bookworm-slim
 
+# Set proxy for build
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ENV http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY}
+
+# Install sudo and common dev tools
 RUN apt-get update && apt-get install -y \
-    git curl wget vim nano \
-    postgresql-client redis-tools \
+    sudo \
+    git \
+    curl \
+    wget \
+    vim \
+    nano \
+    jq \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -s /bin/bash dev
-USER dev
+# Install Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+
+# Create dev user with sudo access
+RUN useradd -m -s /bin/bash dev \
+    && echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Set up working directory
 WORKDIR /workspace
+
+# Switch to dev user
+USER dev
+
+# Set environment (unset proxy from build)
+ENV HOME=/home/dev
+ENV PATH="/home/dev/.local/bin:${PATH}"
+ENV http_proxy="" https_proxy=""
 
 CMD ["bash"]

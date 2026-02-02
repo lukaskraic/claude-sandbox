@@ -9,9 +9,15 @@ interface SessionRow {
   status: string
   worktree_path: string | null
   worktree_branch: string | null
+  worktree_base_branch: string | null
   worktree_commit: string | null
   container_id: string | null
   container_ports: string | null
+  service_containers: string | null
+  network_id: string | null
+  claude_source_user: string | null
+  git_user_name: string | null
+  git_user_email: string | null
   error: string | null
   created_at: string
   updated_at: string
@@ -46,9 +52,9 @@ export class SessionRepository {
     const now = new Date().toISOString()
 
     this.db.prepare(`
-      INSERT INTO sessions (id, project_id, name, status, worktree_branch, created_at, updated_at, created_by)
-      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
-    `).run(id, projectId, input.name, input.branch || null, now, now, createdBy || null)
+      INSERT INTO sessions (id, project_id, name, status, worktree_branch, claude_source_user, git_user_name, git_user_email, created_at, updated_at, created_by)
+      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, projectId, input.name, input.branch || null, input.claudeSourceUser || null, input.gitUserName || null, input.gitUserEmail || null, now, now, createdBy || null)
 
     return this.findById(id)!
   }
@@ -61,19 +67,40 @@ export class SessionRepository {
     return this.findById(id)
   }
 
-  updateWorktree(id: string, path: string, branch: string, commit?: string): Session | null {
+  updateWorktree(id: string, path: string, branch: string, baseBranch?: string, commit?: string): Session | null {
     const now = new Date().toISOString()
     this.db.prepare(`
-      UPDATE sessions SET worktree_path = ?, worktree_branch = ?, worktree_commit = ?, updated_at = ? WHERE id = ?
-    `).run(path, branch, commit || null, now, id)
+      UPDATE sessions SET worktree_path = ?, worktree_branch = ?, worktree_base_branch = ?, worktree_commit = ?, updated_at = ? WHERE id = ?
+    `).run(path, branch, baseBranch || null, commit || null, now, id)
     return this.findById(id)
   }
 
-  updateContainer(id: string, containerId: string, ports: Record<number, number>): Session | null {
+  updateContainer(
+    id: string,
+    containerId: string,
+    ports: Record<number, number>,
+    serviceContainers?: string[],
+    networkId?: string
+  ): Session | null {
     const now = new Date().toISOString()
     this.db.prepare(`
-      UPDATE sessions SET container_id = ?, container_ports = ?, updated_at = ? WHERE id = ?
-    `).run(containerId, JSON.stringify(ports), now, id)
+      UPDATE sessions SET container_id = ?, container_ports = ?, service_containers = ?, network_id = ?, updated_at = ? WHERE id = ?
+    `).run(
+      containerId,
+      JSON.stringify(ports),
+      serviceContainers ? JSON.stringify(serviceContainers) : null,
+      networkId || null,
+      now,
+      id
+    )
+    return this.findById(id)
+  }
+
+  updateContainerId(id: string, containerId: string | null): Session | null {
+    const now = new Date().toISOString()
+    this.db.prepare(`
+      UPDATE sessions SET container_id = ?, updated_at = ? WHERE id = ?
+    `).run(containerId, now, id)
     return this.findById(id)
   }
 
@@ -91,12 +118,18 @@ export class SessionRepository {
       worktree: row.worktree_path ? {
         path: row.worktree_path,
         branch: row.worktree_branch!,
+        baseBranch: row.worktree_base_branch || undefined,
         commit: row.worktree_commit || undefined,
       } : undefined,
       container: row.container_id ? {
         id: row.container_id,
         ports: row.container_ports ? JSON.parse(row.container_ports) : {},
+        serviceContainers: row.service_containers ? JSON.parse(row.service_containers) : undefined,
+        networkId: row.network_id || undefined,
       } : undefined,
+      claudeSourceUser: row.claude_source_user || undefined,
+      gitUserName: row.git_user_name || undefined,
+      gitUserEmail: row.git_user_email || undefined,
       error: row.error || undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),

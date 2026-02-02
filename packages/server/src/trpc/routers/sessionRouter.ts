@@ -5,6 +5,10 @@ import type { Context } from '../context.js'
 const t = initTRPC.context<Context>().create()
 
 export const sessionRouter = t.router({
+  claudeSourceUsers: t.procedure.query(({ ctx }) => {
+    return ctx.config.claudeSourceUsers
+  }),
+
   list: t.procedure.query(({ ctx }) => {
     return ctx.services.sessionService.list()
   }),
@@ -26,11 +30,20 @@ export const sessionRouter = t.router({
       projectId: z.string(),
       name: z.string(),
       branch: z.string().optional(),
+      claudeSourceUser: z.string().optional(),
+      gitUserName: z.string().optional(),
+      gitUserEmail: z.string().optional(),
     }))
     .mutation(({ ctx, input }) => {
       return ctx.services.sessionService.create(
         input.projectId,
-        { name: input.name, branch: input.branch }
+        {
+          name: input.name,
+          branch: input.branch,
+          claudeSourceUser: input.claudeSourceUser,
+          gitUserName: input.gitUserName,
+          gitUserEmail: input.gitUserEmail,
+        }
       )
     }),
 

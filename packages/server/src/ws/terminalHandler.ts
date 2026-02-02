@@ -4,7 +4,7 @@ import type { ContainerService } from '../services/ContainerService.js'
 import { logger } from '../logger.js'
 
 interface TerminalMessage {
-  type: 'input' | 'resize'
+  type: 'input' | 'resize' | 'ping'
   data?: string
   cols?: number
   rows?: number
@@ -59,7 +59,10 @@ export function createTerminalHandler(
         try {
           const message: TerminalMessage = JSON.parse(data.toString())
 
-          if (message.type === 'input' && message.data) {
+          if (message.type === 'ping') {
+            // Respond to keepalive ping
+            ws.send(JSON.stringify({ type: 'pong' }))
+          } else if (message.type === 'input' && message.data) {
             stream.write(message.data)
           } else if (message.type === 'resize' && message.cols && message.rows) {
             exec.resize({ h: message.rows, w: message.cols }).catch((err: Error) => {
@@ -82,7 +85,15 @@ export function createTerminalHandler(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('Failed to create terminal', { sessionId, error: message })
-      ws.send(JSON.stringify({ type: 'error', message }))
+
+      // If container doesn't exist, update session status to stopped
+      if (message.includes('no such container') || message.includes('404')) {
+        logger.info('Container not found, marking session as stopped', { sessionId })
+        await sessionService.markStopped(sessionId)
+        ws.send(JSON.stringify({ type: 'error', message: 'Container no longer exists. Please restart the session.' }))
+      } else {
+        ws.send(JSON.stringify({ type: 'error', message }))
+      }
       ws.close()
     }
   }

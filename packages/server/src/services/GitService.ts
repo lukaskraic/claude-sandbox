@@ -17,8 +17,19 @@ export class GitService {
     }
   }
 
-  async createWorktree(repoPath: string, worktreePath: string, branch: string): Promise<string> {
+  async createWorktree(repoPath: string, worktreePath: string, branch: string, baseBranch?: string): Promise<string> {
     const git = simpleGit(repoPath)
+
+    // Check if worktree already exists
+    try {
+      await fs.access(worktreePath)
+      logger.info('Worktree already exists', { worktreePath, branch })
+      const worktreeGit = simpleGit(worktreePath)
+      const log = await worktreeGit.log({ maxCount: 1 })
+      return log.latest?.hash || ''
+    } catch {
+      // Worktree doesn't exist, create it
+    }
 
     await fs.mkdir(path.dirname(worktreePath), { recursive: true })
 
@@ -26,9 +37,20 @@ export class GitService {
     const branchExists = branches.all.includes(branch) || branches.all.includes(`remotes/origin/${branch}`)
 
     if (branchExists) {
-      await git.raw(['worktree', 'add', worktreePath, branch])
+      // Branch exists - try to use it, but it might fail if already checked out elsewhere
+      try {
+        await git.raw(['worktree', 'add', worktreePath, branch])
+      } catch (err) {
+        // If branch is already used, create a unique branch from it
+        const uniqueBranch = `${branch}-${Date.now()}`
+        logger.info('Branch already in use, creating unique branch', { originalBranch: branch, uniqueBranch })
+        await git.raw(['worktree', 'add', '-b', uniqueBranch, worktreePath, `origin/${branch}`])
+        branch = uniqueBranch
+      }
     } else {
-      await git.raw(['worktree', 'add', '-b', branch, worktreePath])
+      // Create new branch from baseBranch or HEAD
+      const startPoint = baseBranch ? `origin/${baseBranch}` : 'HEAD'
+      await git.raw(['worktree', 'add', '-b', branch, worktreePath, startPoint])
     }
 
     logger.info('Created worktree', { repoPath, worktreePath, branch })
