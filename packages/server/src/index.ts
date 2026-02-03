@@ -19,7 +19,7 @@ import { appRouter } from './trpc/router.js'
 import { createContextFactory } from './trpc/context.js'
 import { createTerminalHandler } from './ws/terminalHandler.js'
 import { createUploadRouter } from './api/uploads.js'
-import { createProxyRouter } from './api/proxy.js'
+import { createProxyRouter, createProxyWebSocketHandler } from './api/proxy.js'
 import { promises as fs } from 'fs'
 import { execFileSync } from 'child_process'
 
@@ -75,6 +75,10 @@ async function main() {
 
   const app = express()
   app.use(cors())
+
+  // Proxy MUST be before express.json() to preserve raw request body for piping
+  app.use('/proxy', createProxyRouter(sessionService))
+
   app.use(express.json())
 
   app.get('/health', (req, res) => {
@@ -83,9 +87,6 @@ async function main() {
 
   // File upload API
   app.use('/api/upload', createUploadRouter(config.dataDir, sessionService, containerService))
-
-  // Proxy to session container ports
-  app.use('/proxy', createProxyRouter(sessionService))
 
   app.use('/trpc', trpcExpress.createExpressMiddleware({
     router: appRouter,
@@ -107,7 +108,8 @@ async function main() {
 
   const server = createServer(app)
 
-  const wss = new WebSocketServer({ server, path: '/ws' })
+  // Terminal WebSocket server (noServer mode for manual upgrade handling)
+  const wss = new WebSocketServer({ noServer: true })
   const terminalHandler = createTerminalHandler(sessionService, containerService)
 
   wss.on('connection', (ws, req) => {
@@ -119,6 +121,26 @@ async function main() {
     } else {
       logger.info('WebSocket client connected (events)')
       ws.on('close', () => logger.info('WebSocket client disconnected'))
+    }
+  })
+
+  // Proxy WebSocket handler
+  const proxyWsHandler = createProxyWebSocketHandler(sessionService)
+
+  // Handle WebSocket upgrades manually to route to correct handler
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = req.url?.split('?')[0] || ''
+
+    if (pathname === '/ws') {
+      // Terminal WebSocket
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req)
+      })
+    } else if (pathname.startsWith('/proxy/')) {
+      // Proxy WebSocket (for Vite HMR, etc.)
+      proxyWsHandler(req, socket, head)
+    } else {
+      socket.destroy()
     }
   })
 
