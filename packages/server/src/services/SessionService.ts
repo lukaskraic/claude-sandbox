@@ -168,11 +168,17 @@ export class SessionService {
           try {
             // Use ACL to grant rwx to container user without removing server user's access
             // -R = recursive, -m = modify ACL, rwX = read/write/execute(dirs only)
-            // No sudo needed - service owns the files
+            // File owner (claude-sandbox) can set ACL without sudo
             await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${worktreePath}`)
-            // Set default ACL for new files created in the directory
             await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${worktreePath}`)
-            logger.info('Added ACL for container user', { sessionId: id, path: worktreePath, uid: userIds.uid })
+            logger.info('Added ACL for container user on worktree', { sessionId: id, path: worktreePath, uid: userIds.uid })
+
+            // Add ACL to entire .git directory in main repo
+            // Git needs write access to: .git/objects/, .git/worktrees/, .git/refs/, etc.
+            const gitDirPath = path.join(repoPath, '.git')
+            await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${gitDirPath}`)
+            await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${gitDirPath}`)
+            logger.info('Added ACL for container user on .git directory', { sessionId: id, path: gitDirPath, uid: userIds.uid })
           } catch (err) {
             logger.warn('Failed to add ACL for container user', { sessionId: id, error: err })
           }

@@ -391,18 +391,19 @@ const newFolderName = ref('')
 const session = computed(() => sessionStore.sessionById(route.params.id as string))
 const project = computed(() => session.value ? projectStore.projectById(session.value.projectId) : null)
 
-// Get available ports with URLs for clicking
+// Get available ports with URLs for clicking (using proxy endpoint)
 const availablePorts = computed(() => {
   if (!session.value?.container?.ports) return []
   const ports = session.value.container.ports
-  // Get base hostname (strip port from current location)
-  const baseHost = window.location.hostname
+  const sessionId = session.value.id
+  // Use proxy endpoint which goes through the server
+  const baseUrl = window.location.origin
   return Object.entries(ports)
     .filter(([, host]) => host && host > 0)  // Filter out unassigned ports (0)
     .map(([container, host]) => ({
       container: parseInt(container),
       host,
-      url: `http://${baseHost}:${host}`,
+      url: `${baseUrl}/proxy/${sessionId}/${container}/`,
     }))
     .sort((a, b) => a.container - b.container)
 })

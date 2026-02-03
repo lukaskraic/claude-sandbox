@@ -19,6 +19,7 @@ import { appRouter } from './trpc/router.js'
 import { createContextFactory } from './trpc/context.js'
 import { createTerminalHandler } from './ws/terminalHandler.js'
 import { createUploadRouter } from './api/uploads.js'
+import { createProxyRouter } from './api/proxy.js'
 import { promises as fs } from 'fs'
 import { execFileSync } from 'child_process'
 
@@ -82,6 +83,9 @@ async function main() {
 
   // File upload API
   app.use('/api/upload', createUploadRouter(config.dataDir))
+
+  // Proxy to session container ports
+  app.use('/proxy', createProxyRouter(sessionService))
 
   app.use('/trpc', trpcExpress.createExpressMiddleware({
     router: appRouter,

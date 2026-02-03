@@ -94,12 +94,28 @@ sudo setfacl -m u:claude-sandbox:rx /home/<username>
 #    (Claude Code needs write for settings.local.json, session state, etc.)
 sudo setfacl -Rm u:claude-sandbox:rwX /home/<username>/.claude
 sudo setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.claude
+
+# 3. Grant write access to .local directory (contains Claude Code binary)
+sudo setfacl -Rm u:claude-sandbox:rwX /home/<username>/.local
+sudo setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.local
 ```
+
+**For existing git repos** (one-time setup per repo):
+```bash
+# Grant container user write access to git directory
+# (needed for git add/commit in worktrees)
+sudo setfacl -Rm u:<username>:rwX /srv/claude-sandbox/data/repos/<project>/.git/
+sudo setfacl -Rdm u:<username>:rwX /srv/claude-sandbox/data/repos/<project>/.git/
+```
+
+Note: For **new sessions**, the service automatically sets ACL on `.git/` directory.
 
 **Why this is needed:**
 - The `claude-sandbox` service runs as a dedicated user, not root
 - Without ACL on home dir, service cannot traverse to `.claude`
 - Without ACL on `.claude`, service cannot read Claude settings
+- Without ACL on `.local`, container cannot access Claude Code binary
+- Without ACL on `.git/`, container user cannot run git commands
 - The `-Rm` sets recursive permissions, `-Rdm` sets default for new files
 
 **Current users with access:**
