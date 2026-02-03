@@ -78,12 +78,23 @@
     </v-row>
 
     <v-card>
-      <v-tabs v-model="activeTab" density="compact">
-        <v-tab value="terminal">Terminal</v-tab>
-        <v-tab value="files">Files</v-tab>
-        <v-tab value="git">Git Changes</v-tab>
-        <v-tab value="logs">Logs</v-tab>
-      </v-tabs>
+      <div class="d-flex align-center">
+        <v-tabs v-model="activeTab" density="compact">
+          <v-tab value="terminal">Terminal</v-tab>
+          <v-tab value="files">Files</v-tab>
+          <v-tab value="git">Git Changes</v-tab>
+          <v-tab value="logs">Logs</v-tab>
+        </v-tabs>
+        <v-spacer />
+        <v-btn
+          icon="mdi-help-circle-outline"
+          size="small"
+          variant="text"
+          class="mr-2"
+          @click="showClipboardHelp = true"
+          title="Clipboard & Shortcuts Help"
+        />
+      </div>
       <v-card-text :style="{ height: terminalHeight, padding: 0 }">
         <v-window v-model="activeTab" style="height: 100%;">
           <v-window-item value="terminal" style="height: 100%; overflow: hidden;">
@@ -326,6 +337,118 @@
         </v-window>
       </v-card-text>
     </v-card>
+
+    <!-- Clipboard Help Dialog -->
+    <v-dialog v-model="showClipboardHelp" max-width="650">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2">mdi-clipboard-text</v-icon>
+          Clipboard & Shortcuts
+        </v-card-title>
+        <v-card-text>
+          <v-expansion-panels variant="accordion">
+            <!-- Text Copy/Paste -->
+            <v-expansion-panel>
+              <v-expansion-panel-title>
+                <v-icon class="mr-2" size="small">mdi-content-copy</v-icon>
+                Text Copy & Paste
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-table density="compact">
+                  <tbody>
+                    <tr>
+                      <td class="font-weight-medium" style="width: 180px;">Select text</td>
+                      <td>Auto-copies to clipboard</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-medium">Ctrl+Shift+C / Cmd+C</td>
+                      <td>Copy selection</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-medium">Ctrl+V / Cmd+V</td>
+                      <td>Paste text</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-medium">Ctrl+Shift+V</td>
+                      <td>Paste text (alternative)</td>
+                    </tr>
+                  </tbody>
+                </v-table>
+                <v-alert type="info" density="compact" variant="tonal" class="mt-3">
+                  <strong>tmux scroll:</strong> Terminal uses tmux - use mouse wheel to scroll, or <code>Ctrl+B [</code> for copy mode.
+                </v-alert>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+
+            <!-- Image Paste -->
+            <v-expansion-panel>
+              <v-expansion-panel-title>
+                <v-icon class="mr-2" size="small">mdi-image</v-icon>
+                Screenshot / Image Paste
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <p class="mb-3">Paste screenshots directly into the terminal:</p>
+                <v-table density="compact">
+                  <tbody>
+                    <tr>
+                      <td class="font-weight-medium" style="width: 180px;">1. Take screenshot</td>
+                      <td>
+                        <strong>macOS:</strong> Cmd+Shift+4 (area) or Cmd+Shift+3 (full)<br>
+                        <strong>Windows:</strong> Win+Shift+S or Print Screen<br>
+                        <strong>Linux:</strong> Print Screen or screenshot tool
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-medium">2. Paste</td>
+                      <td>Ctrl+V / Cmd+V in terminal</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-medium">3. Result</td>
+                      <td>Image saved to <code>/tmp/screenshot-*.png</code>, path inserted</td>
+                    </tr>
+                  </tbody>
+                </v-table>
+                <v-alert type="success" density="compact" variant="tonal" class="mt-3">
+                  <strong>Claude Code:</strong> Use <code>/image /tmp/screenshot-*.png</code> to share image with Claude.
+                </v-alert>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+
+            <!-- Native tmux Plugin -->
+            <v-expansion-panel>
+              <v-expansion-panel-title>
+                <v-icon class="mr-2" size="small">mdi-monitor</v-icon>
+                Native Terminal (tmux-paste-image)
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <p class="mb-3">For native tmux sessions (SSH, local terminal), use the <strong>tmux-paste-image</strong> plugin:</p>
+                <v-sheet class="pa-3 mb-3 bg-grey-darken-4" rounded>
+                  <code class="text-caption">
+                    # Install via TPM (.tmux.conf)<br>
+                    set -g @plugin 'jkhas8/tmux-paste-image'<br><br>
+                    # Usage: Take screenshot, then<br>
+                    prefix + P &nbsp;&nbsp;# Paste image path
+                  </code>
+                </v-sheet>
+                <v-btn
+                  href="https://github.com/jkhas8/tmux-paste-image"
+                  target="_blank"
+                  size="small"
+                  variant="tonal"
+                  prepend-icon="mdi-github"
+                >
+                  View on GitHub
+                </v-btn>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showClipboardHelp = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -385,6 +508,7 @@ const filesError = ref<string | null>(null)
 const editMode = ref<'view' | 'edit'>('view')
 const showNewFileDialog = ref(false)
 const showNewFolderDialog = ref(false)
+const showClipboardHelp = ref(false)
 const newFileName = ref('')
 const newFolderName = ref('')
 

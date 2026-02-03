@@ -82,7 +82,7 @@ async function main() {
   })
 
   // File upload API
-  app.use('/api/upload', createUploadRouter(config.dataDir))
+  app.use('/api/upload', createUploadRouter(config.dataDir, sessionService, containerService))
 
   // Proxy to session container ports
   app.use('/proxy', createProxyRouter(sessionService))

@@ -24,6 +24,7 @@ export interface Session {
   claudeSourceUser?: string
   gitUserName?: string
   gitUserEmail?: string
+  githubToken?: string
   error?: string
   createdAt: Date
   updatedAt: Date
@@ -36,6 +37,7 @@ export interface CreateSessionInput {
   claudeSourceUser?: string
   gitUserName?: string
   gitUserEmail?: string
+  githubToken?: string
 }
 
 export interface SessionLogs {

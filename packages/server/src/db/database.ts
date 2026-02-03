@@ -54,6 +54,13 @@ export function getDatabase(dbPath: string): Database.Database {
       // Column already exists
     }
 
+    try {
+      db.exec('ALTER TABLE sessions ADD COLUMN github_token TEXT')
+      logger.info('Migration: added github_token column')
+    } catch {
+      // Column already exists
+    }
+
     logger.info('Database initialized', { path: dbPath })
   }
   return db

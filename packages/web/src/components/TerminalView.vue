@@ -20,7 +20,7 @@
         Reconnect
       </v-btn>
     </div>
-    <div ref="terminalContainer" class="terminal-container" @contextmenu.prevent />
+    <div ref="terminalContainer" class="terminal-container" tabindex="0" @contextmenu.prevent />
   </div>
 </template>
 
@@ -54,6 +54,8 @@ const PING_INTERVAL = 20000 // 20 seconds
 const PONG_TIMEOUT = 10000 // 10 seconds
 const MAX_RECONNECT_ATTEMPTS = 15
 const BASE_RECONNECT_DELAY = 1000
+
+const isUploadingImage = ref(false)
 
 onMounted(() => {
   if (!terminalContainer.value) return
@@ -156,8 +158,95 @@ watch(() => props.sessionId, () => {
   }
 })
 
+async function handlePaste() {
+  try {
+    // Try to read clipboard items (supports images)
+    const clipboardItems = await navigator.clipboard.read()
+
+    for (const item of clipboardItems) {
+      // Check for image types first
+      const imageType = item.types.find(t => t.startsWith('image/'))
+      if (imageType) {
+        const blob = await item.getType(imageType)
+        const file = new File([blob], `screenshot-${Date.now()}.png`, { type: imageType })
+        const imagePath = await uploadImage(file)
+        if (imagePath) {
+          sendInput(imagePath)
+        }
+        return
+      }
+
+      // Fall back to text
+      if (item.types.includes('text/plain')) {
+        const blob = await item.getType('text/plain')
+        const text = await blob.text()
+        sendInput(text)
+        return
+      }
+    }
+  } catch {
+    // Fallback to readText if read() is not supported or fails
+    try {
+      const text = await navigator.clipboard.readText()
+      sendInput(text)
+    } catch {
+      // Clipboard access denied
+    }
+  }
+}
+
+async function uploadImage(file: File): Promise<string | null> {
+  const formData = new FormData()
+  formData.append('image', file)
+
+  try {
+    isUploadingImage.value = true
+    terminal?.writeln('\r\n\x1B[33mUploading image...\x1B[0m')
+
+    const response = await fetch(`/api/upload/sessions/${props.sessionId}/image`, {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Upload failed')
+    }
+
+    const result = await response.json()
+    terminal?.writeln(`\x1B[32mImage saved: ${result.path}\x1B[0m\r\n`)
+    return result.path
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Upload failed'
+    terminal?.writeln(`\x1B[31mImage upload failed: ${message}\x1B[0m\r\n`)
+    return null
+  } finally {
+    isUploadingImage.value = false
+  }
+}
+
 function setupClipboard() {
-  if (!terminal) return
+  if (!terminal || !terminalContainer.value) return
+
+  // Handle paste event for images
+  terminalContainer.value.addEventListener('paste', async (event: ClipboardEvent) => {
+    const items = event.clipboardData?.items
+    if (!items) return
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        event.preventDefault()
+        const file = item.getAsFile()
+        if (file) {
+          const imagePath = await uploadImage(file)
+          if (imagePath) {
+            sendInput(imagePath)
+          }
+        }
+        return
+      }
+    }
+  })
 
   // Auto-copy selection to clipboard on mouse up
   let copyTimeout: ReturnType<typeof setTimeout> | null = null
@@ -183,18 +272,11 @@ function setupClipboard() {
       }
       return false
     }
-    // Ctrl+Shift+V for paste
-    if (event.ctrlKey && event.shiftKey && event.key === 'V') {
-      navigator.clipboard.readText().then((text) => {
-        sendInput(text)
-      })
-      return false
-    }
-    // Ctrl+V for paste (more intuitive)
-    if (event.ctrlKey && !event.shiftKey && event.key === 'v') {
-      navigator.clipboard.readText().then((text) => {
-        sendInput(text)
-      })
+    // Ctrl+Shift+V or Ctrl+V for paste (handles both text and images)
+    if ((event.ctrlKey && event.shiftKey && event.key === 'V') ||
+        (event.ctrlKey && !event.shiftKey && event.key === 'v') ||
+        (event.metaKey && event.key === 'v')) {
+      handlePaste()
       return false
     }
     return true

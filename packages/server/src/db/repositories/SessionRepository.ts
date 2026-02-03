@@ -18,6 +18,7 @@ interface SessionRow {
   claude_source_user: string | null
   git_user_name: string | null
   git_user_email: string | null
+  github_token: string | null
   error: string | null
   created_at: string
   updated_at: string
@@ -52,9 +53,9 @@ export class SessionRepository {
     const now = new Date().toISOString()
 
     this.db.prepare(`
-      INSERT INTO sessions (id, project_id, name, status, worktree_branch, claude_source_user, git_user_name, git_user_email, created_at, updated_at, created_by)
-      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, projectId, input.name, input.branch || null, input.claudeSourceUser || null, input.gitUserName || null, input.gitUserEmail || null, now, now, createdBy || null)
+      INSERT INTO sessions (id, project_id, name, status, worktree_branch, claude_source_user, git_user_name, git_user_email, github_token, created_at, updated_at, created_by)
+      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, projectId, input.name, input.branch || null, input.claudeSourceUser || null, input.gitUserName || null, input.gitUserEmail || null, input.githubToken || null, now, now, createdBy || null)
 
     return this.findById(id)!
   }
@@ -130,6 +131,7 @@ export class SessionRepository {
       claudeSourceUser: row.claude_source_user || undefined,
       gitUserName: row.git_user_name || undefined,
       gitUserEmail: row.git_user_email || undefined,
+      githubToken: row.github_token || undefined,
       error: row.error || undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),

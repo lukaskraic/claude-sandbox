@@ -199,7 +199,7 @@ export declare const useContainerStore: import("pinia").StoreDefinition<"contain
     removeImage: (imageId: string) => Promise<void>;
     cleanupOrphans: (projectId: string) => Promise<BatchOperationResult>;
     clearError: () => void;
-}, "error" | "loading" | "summary" | "containers" | "images" | "networks" | "volumes" | "stats" | "orphanedContainers">, Pick<{
+}, "loading" | "error" | "summary" | "containers" | "images" | "networks" | "volumes" | "stats" | "orphanedContainers">, Pick<{
     containers: import("vue").Ref<{
         id: string;
         name: string;

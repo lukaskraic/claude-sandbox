@@ -33,6 +33,7 @@ export const sessionRouter = t.router({
       claudeSourceUser: z.string().optional(),
       gitUserName: z.string().optional(),
       gitUserEmail: z.string().optional(),
+      githubToken: z.string().optional(),
     }))
     .mutation(({ ctx, input }) => {
       return ctx.services.sessionService.create(
@@ -43,6 +44,7 @@ export const sessionRouter = t.router({
           claudeSourceUser: input.claudeSourceUser,
           gitUserName: input.gitUserName,
           gitUserEmail: input.gitUserEmail,
+          githubToken: input.githubToken,
         }
       )
     }),

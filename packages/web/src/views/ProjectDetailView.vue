@@ -433,6 +433,14 @@
             label="Git User Email (optional)"
             hint="For git commits in this session"
             persistent-hint
+            class="mb-2"
+          />
+          <v-text-field
+            v-model="newSessionGithubToken"
+            label="GitHub Token (optional)"
+            hint="For gh CLI and git push/pull operations"
+            persistent-hint
+            type="password"
           />
         </v-card-text>
         <v-card-actions>
@@ -475,6 +483,7 @@ const newSessionBranch = ref('')
 const newSessionClaudeUser = ref<string | null>(null)
 const newSessionGitUserName = ref('lukas.kraic')
 const newSessionGitUserEmail = ref('lukas.kraic@alanata.sk')
+const newSessionGithubToken = ref('')
 const claudeSourceUsers = ref<string[]>([])
 const imageStatus = ref<ProjectImage | null>(null)
 const rebuildingImage = ref(false)
@@ -679,6 +688,7 @@ async function createSession() {
     claudeSourceUser: newSessionClaudeUser.value || undefined,
     gitUserName: newSessionGitUserName.value || undefined,
     gitUserEmail: newSessionGitUserEmail.value || undefined,
+    githubToken: newSessionGithubToken.value || undefined,
   })
   showCreateSession.value = false
   newSessionName.value = ''
@@ -686,6 +696,7 @@ async function createSession() {
   newSessionClaudeUser.value = null
   newSessionGitUserName.value = 'lukas.kraic'
   newSessionGitUserEmail.value = 'lukas.kraic@alanata.sk'
+  newSessionGithubToken.value = ''
   // Refetch to get fresh data
   await sessionStore.fetchSessions()
 }

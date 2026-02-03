@@ -160,7 +160,7 @@ export declare const useProjectStore: import("pinia").StoreDefinition<"project",
     fetchProjects: () => Promise<void>;
     createProject: (input: CreateProjectInput) => Promise<any>;
     deleteProject: (id: string) => Promise<void>;
-}, "error" | "loading" | "projects">, Pick<{
+}, "projects" | "loading" | "error">, Pick<{
     projects: import("vue").Ref<{
         id: string;
         name: string;

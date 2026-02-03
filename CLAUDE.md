@@ -120,6 +120,7 @@ Note: For **new sessions**, the service automatically sets ACL on `.git/` direct
 
 **Current users with access:**
 - `licencieclaude13` - ACL added 2026-02-02
+- `licencieclaude21` - ACL added 2026-02-03
 
 ## Tech Stack
 

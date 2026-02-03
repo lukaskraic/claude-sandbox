@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   claude_source_user TEXT,
   git_user_name TEXT,
   git_user_email TEXT,
+  github_token TEXT,
   error TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,

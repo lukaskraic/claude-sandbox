@@ -20,6 +20,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -44,6 +45,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -71,6 +73,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -96,6 +99,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -107,7 +111,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
     stopSession: (id: string) => Promise<any>;
     removeSession: (id: string) => Promise<void>;
     updateSession: (session: Session) => void;
-}, "error" | "sessions" | "loading">, Pick<{
+}, "loading" | "error" | "sessions">, Pick<{
     sessions: import("vue").Ref<{
         id: string;
         projectId: string;
@@ -128,6 +132,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -152,6 +157,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -179,6 +185,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -204,6 +211,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -236,6 +244,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -260,6 +269,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -287,6 +297,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
@@ -312,6 +323,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
         claudeSourceUser?: string | undefined;
         gitUserName?: string | undefined;
         gitUserEmail?: string | undefined;
+        githubToken?: string | undefined;
         error?: string | undefined;
         createdAt: Date;
         updatedAt: Date;
