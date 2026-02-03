@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     nano \
     jq \
     procps \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Claude Code CLI

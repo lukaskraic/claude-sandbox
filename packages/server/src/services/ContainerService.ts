@@ -359,9 +359,18 @@ export class ContainerService {
         // Use tmux for persistent terminal session that survives WebSocket reconnects
         // -A: attach to session if exists, create if not
         // -s claude: session name
-        // Enable mouse support for scrolling via inline config
+        // Enable mouse support with OSC 52 clipboard (works with xterm.js)
+        const tmuxConfig = `
+set -g mouse on
+set -g history-limit 50000
+set -s set-clipboard on
+set -as terminal-features ',xterm-256color:clipboard'
+set -g allow-passthrough on
+bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-selection-and-cancel
+bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-selection-and-cancel
+`.trim()
         const exec = await container.exec({
-          Cmd: ['bash', '-c', 'echo "set -g mouse on" > /tmp/.tmux.conf && exec tmux -f /tmp/.tmux.conf new-session -A -s claude bash -l'],
+          Cmd: ['bash', '-c', `cat > /tmp/.tmux.conf << 'TMUXCONF'\n${tmuxConfig}\nTMUXCONF\nexec tmux -f /tmp/.tmux.conf new-session -A -s claude bash -l`],
           AttachStdin: true,
           AttachStdout: true,
           AttachStderr: true,

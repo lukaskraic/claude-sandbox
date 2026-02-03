@@ -161,40 +161,26 @@ export class SessionService {
         await fs.writeFile(claudeMdPath, project.claude.claudeMd)
       }
 
-      // Change worktree ownership to match the container user if specified
+      // Add ACL permissions for container user while keeping server user access
       if (session.claudeSourceUser) {
         const userIds = await getUserIds(session.claudeSourceUser)
         if (userIds) {
           try {
-            // Use sudo for chown since service user may not have CAP_CHOWN
-            await execAsync(`sudo chown -R ${userIds.uid}:${userIds.gid} ${worktreePath}`)
-            logger.info('Changed worktree ownership', { sessionId: id, path: worktreePath, uid: userIds.uid, gid: userIds.gid })
+            // Use ACL to grant rwx to container user without removing server user's access
+            // -R = recursive, -m = modify ACL, rwX = read/write/execute(dirs only)
+            // No sudo needed - service owns the files
+            await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${worktreePath}`)
+            // Set default ACL for new files created in the directory
+            await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${worktreePath}`)
+            logger.info('Added ACL for container user', { sessionId: id, path: worktreePath, uid: userIds.uid })
           } catch (err) {
-            logger.warn('Failed to change worktree ownership', { sessionId: id, error: err })
+            logger.warn('Failed to add ACL for container user', { sessionId: id, error: err })
           }
         }
       }
 
-      // Build or get cached image
-      let imageTag: string
-      const hasRuntimes = project.environment.runtimes && Object.keys(project.environment.runtimes).some(k => project.environment.runtimes![k as keyof typeof project.environment.runtimes])
-      const hasPackages = project.environment.packages && project.environment.packages.length > 0
-      const hasTools = project.environment.tools && (
-        (project.environment.tools.npm?.length ?? 0) > 0 ||
-        (project.environment.tools.pip?.length ?? 0) > 0 ||
-        (project.environment.tools.custom?.length ?? 0) > 0
-      )
-      if (hasRuntimes || hasPackages || hasTools) {
-        // Has custom environment config - build image
-        imageTag = await this.imageBuilderService.getOrBuildImage(project)
-      } else {
-        // Just use base image
-        const exists = await this.containerService.imageExists(project.environment.baseImage)
-        if (!exists) {
-          await this.containerService.pullImage(project.environment.baseImage)
-        }
-        imageTag = project.environment.baseImage
-      }
+      // Always build custom image - we need tmux, sudo, ripgrep etc. even for base images
+      const imageTag = await this.imageBuilderService.getOrBuildImage(project)
 
       // Start service containers if defined
       const serviceResult = await this.startServiceContainers(session.id, project)
@@ -205,7 +191,8 @@ export class SessionService {
         { source: worktreePath, target: '/workspace' },
         // Mount main repo .git directory so git worktree references work inside container
         // Worktree .git file contains absolute path to main repo's .git/worktrees/
-        { source: path.join(repoPath, '.git'), target: path.join(repoPath, '.git'), readonly: true },
+        // NOT readonly - git needs to write lock files in .git/worktrees/{session}/
+        { source: path.join(repoPath, '.git'), target: path.join(repoPath, '.git'), readonly: false },
         ...(project.mounts || []).map((m) => ({
           source: m.source.replace('~', process.env.HOME || ''),
           target: m.target,
@@ -253,6 +240,20 @@ export class SessionService {
           })
           logger.info('Mounting .claude.json', { sessionId: id, path: claudeJsonPath })
 
+          // Mount .local directory (contains Claude Code binary in bin/)
+          const localPath = `${claudeUserHome}/.local`
+          try {
+            await fs.access(localPath)
+            mounts.push({
+              source: localPath,
+              target: localPath,
+              readonly: false,  // Claude may need to update itself
+            })
+            logger.info('Mounting .local directory', { sessionId: id, source: localPath, target: localPath })
+          } catch {
+            logger.debug('.local directory not found, skipping mount', { sessionId: id, path: localPath })
+          }
+
           // Mount .gitconfig only if session doesn't have git user settings
           // (if session has settings, startup command will set them via git config --global)
           if (!session.gitUserName && !session.gitUserEmail) {
@@ -287,11 +288,15 @@ export class SessionService {
       const mainContainerName = `claude-sandbox-${session.id.slice(0, 8)}`
       await this.containerService.removeContainerByName(mainContainerName).catch(() => {})
 
-      // Build environment with HOME set to match the claude source user's home
+      // Build environment with HOME and PATH set to match the claude source user
       const containerEnv = {
         ...project.environment.env,
         ...serviceResult.env,
-        ...(claudeUserHome ? { HOME: claudeUserHome } : {}),
+        ...(claudeUserHome ? {
+          HOME: claudeUserHome,
+          // Prepend ~/.local/bin to PATH for Claude Code binary
+          PATH: `${claudeUserHome}/.local/bin:/usr/lib/jvm/java/bin:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
+        } : {}),
       }
 
       // Get UID/GID of the claude source user to run container with same permissions
@@ -306,7 +311,7 @@ export class SessionService {
         }
       }
 
-      // Build startup command - setup git config, safe.directory, create Claude symlink, then sleep
+      // Build startup command - setup git config, safe.directory, PATH, then sleep
       let startupCommand: string[] | undefined
       if (claudeUserHome) {
         const gitRepoPath = path.join(repoPath, '.git')
@@ -318,6 +323,8 @@ export class SessionService {
           // Git safe.directory settings
           `git config --global --add safe.directory /workspace`,
           `git config --global --add safe.directory ${gitRepoPath}`,
+          // Convert SSH remote to HTTPS (SSH is blocked in sandbox)
+          `cd /workspace && git remote get-url origin 2>/dev/null | grep -q '^git@github.com:' && git remote set-url origin $(git remote get-url origin | sed 's|git@github.com:|https://github.com/|') || true`,
         ]
         // Add git user config if provided in session
         if (session.gitUserName) {
@@ -326,8 +333,6 @@ export class SessionService {
         if (session.gitUserEmail) {
           setupCommands.push(`git config --global user.email "${session.gitUserEmail.replace(/"/g, '\\"')}"`)
         }
-        // Create Claude symlink
-        setupCommands.push(`mkdir -p ${claudeUserHome}/.local/bin && ln -sf /usr/bin/claude ${claudeUserHome}/.local/bin/claude 2>/dev/null || true`)
 
         startupCommand = [
           'sh', '-c',

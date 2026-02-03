@@ -1,8 +1,22 @@
 import { z } from 'zod'
 import { initTRPC } from '@trpc/server'
 import type { Context } from '../context.js'
+import type { CreateProjectInput, UpdateProjectInput } from '@claude-sandbox/shared'
 
 const t = initTRPC.context<Context>().create()
+
+// Helper to convert null to undefined recursively
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function nullToUndefined(obj: any): any {
+  if (obj === null) return undefined
+  if (typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) return obj.map(nullToUndefined)
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    result[key] = nullToUndefined(value)
+  }
+  return result
+}
 
 const serviceSchema = z.object({
   type: z.enum(['postgres', 'mysql', 'redis', 'mongodb', 'elasticsearch']),
@@ -34,13 +48,13 @@ const createProjectSchema = z.object({
       node: z.string().optional(),
       python: z.string().optional(),
       go: z.string().optional(),
-    }).optional(),
+    }).nullish(),
     packages: z.array(z.string()).optional(),
     tools: z.object({
       npm: z.array(z.string()).optional(),
       pip: z.array(z.string()).optional(),
       custom: z.array(z.string()).optional(),
-    }).optional(),
+    }).nullish(),
     services: z.array(serviceSchema).optional(),
     setup: z.string().optional(),
     ports: z.array(z.string()).optional(),
@@ -80,13 +94,13 @@ export const projectRouter = t.router({
   create: t.procedure
     .input(createProjectSchema)
     .mutation(({ ctx, input }) => {
-      return ctx.services.projectService.create(input)
+      return ctx.services.projectService.create(nullToUndefined(input) as CreateProjectInput)
     }),
 
   update: t.procedure
     .input(z.object({ id: z.string(), data: updateProjectSchema }))
     .mutation(({ ctx, input }) => {
-      return ctx.services.projectService.update(input.id, input.data)
+      return ctx.services.projectService.update(input.id, nullToUndefined(input.data) as UpdateProjectInput)
     }),
 
   delete: t.procedure
@@ -99,7 +113,7 @@ export const projectRouter = t.router({
   validate: t.procedure
     .input(createProjectSchema)
     .mutation(({ ctx, input }) => {
-      return ctx.services.projectService.validate(input)
+      return ctx.services.projectService.validate(nullToUndefined(input) as CreateProjectInput)
     }),
 
   rebuildImage: t.procedure

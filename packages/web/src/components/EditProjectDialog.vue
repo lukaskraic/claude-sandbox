@@ -683,8 +683,11 @@ async function submit() {
       yamlError.value = e instanceof Error ? e.message : 'Invalid YAML'
       return
     }
-  } else if (!form.value?.validate()) {
-    return
+  } else {
+    const isValid = await form.value?.validate()
+    if (!isValid?.valid) {
+      return
+    }
   }
 
   if (!props.project) return
@@ -730,7 +733,7 @@ function cleanRuntimes(runtimes: typeof formData.environment.runtimes) {
   if (runtimes.node) cleaned.node = runtimes.node
   if (runtimes.python) cleaned.python = runtimes.python
   if (runtimes.go) cleaned.go = runtimes.go
-  return Object.keys(cleaned).length > 0 ? cleaned : undefined
+  return Object.keys(cleaned).length > 0 ? cleaned : null
 }
 
 function cleanTools() {
@@ -740,7 +743,8 @@ function cleanTools() {
   if (installClaudeCode.value) {
     tools.custom = ['claude-code']
   }
-  return Object.keys(tools).length > 0 ? tools : undefined
+  // Return null (not undefined) to explicitly clear - undefined gets dropped by JSON.stringify
+  return Object.keys(tools).length > 0 ? tools : null
 }
 
 function cleanProxy() {
@@ -748,6 +752,6 @@ function cleanProxy() {
   if (formData.environment.proxy.http) proxy.http = formData.environment.proxy.http
   if (formData.environment.proxy.https) proxy.https = formData.environment.proxy.https
   if (formData.environment.proxy.noProxy) proxy.noProxy = formData.environment.proxy.noProxy
-  return Object.keys(proxy).length > 0 ? proxy : undefined
+  return Object.keys(proxy).length > 0 ? proxy : null
 }
 </script>

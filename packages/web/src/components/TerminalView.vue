@@ -20,7 +20,7 @@
         Reconnect
       </v-btn>
     </div>
-    <div ref="terminalContainer" class="terminal-container" />
+    <div ref="terminalContainer" class="terminal-container" @contextmenu.prevent />
   </div>
 </template>
 
@@ -82,6 +82,25 @@ onMounted(() => {
   terminal.loadAddon(fitAddon)
   terminal.loadAddon(new WebLinksAddon())
 
+  // OSC 52 clipboard handler with proper UTF-8 support
+  terminal.parser.registerOscHandler(52, (data) => {
+    const parts = data.split(';')
+    if (parts.length >= 2) {
+      const base64 = parts[1]
+      if (base64 && base64 !== '?') {
+        try {
+          // Decode base64 to UTF-8 properly
+          const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+          const text = new TextDecoder('utf-8').decode(bytes)
+          navigator.clipboard.writeText(text).catch(() => {})
+        } catch (e) {
+          console.error('Clipboard error:', e)
+        }
+      }
+    }
+    return true
+  })
+
   terminal.open(terminalContainer.value)
   fitAddon.fit()
   terminal.focus()
@@ -140,6 +159,21 @@ watch(() => props.sessionId, () => {
 function setupClipboard() {
   if (!terminal) return
 
+  // Auto-copy selection to clipboard on mouse up
+  let copyTimeout: ReturnType<typeof setTimeout> | null = null
+  terminal.onSelectionChange(() => {
+    // Debounce to avoid copying during active selection
+    if (copyTimeout) clearTimeout(copyTimeout)
+    copyTimeout = setTimeout(() => {
+      const selection = terminal!.getSelection()
+      if (selection && selection.length > 0) {
+        navigator.clipboard.writeText(selection).catch(() => {
+          // Clipboard access may fail in some contexts
+        })
+      }
+    }, 100)
+  })
+
   terminal.attachCustomKeyEventHandler((event) => {
     // Ctrl+Shift+C for copy
     if (event.ctrlKey && event.shiftKey && event.key === 'C') {
@@ -151,6 +185,13 @@ function setupClipboard() {
     }
     // Ctrl+Shift+V for paste
     if (event.ctrlKey && event.shiftKey && event.key === 'V') {
+      navigator.clipboard.readText().then((text) => {
+        sendInput(text)
+      })
+      return false
+    }
+    // Ctrl+V for paste (more intuitive)
+    if (event.ctrlKey && !event.shiftKey && event.key === 'v') {
       navigator.clipboard.readText().then((text) => {
         sendInput(text)
       })

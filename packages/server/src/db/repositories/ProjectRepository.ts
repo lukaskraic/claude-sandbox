@@ -52,12 +52,15 @@ export class ProjectRepository {
     if (!existing) return null
 
     const now = new Date().toISOString()
-    const config = JSON.stringify({
-      git: input.git ? { ...existing.git, ...input.git } : existing.git,
-      environment: input.environment ? { ...existing.environment, ...input.environment } : existing.environment,
-      mounts: input.mounts ?? existing.mounts,
-      claude: input.claude ?? existing.claude,
-    })
+    // Use explicit replacement - frontend sends complete objects
+    // null values explicitly clear fields, undefined keeps existing
+    const newConfig = {
+      git: input.git ?? existing.git,
+      environment: input.environment ?? existing.environment,
+      mounts: 'mounts' in input ? input.mounts : existing.mounts,
+      claude: 'claude' in input ? input.claude : existing.claude,
+    }
+    const config = JSON.stringify(newConfig)
 
     this.db.prepare(`
       UPDATE projects SET name = ?, description = ?, config = ?, updated_at = ?

@@ -553,12 +553,21 @@ onMounted(async () => {
   }
 
   await loadImageStatus()
+
+  // Start polling if image is building
+  if (imageStatus.value?.status === 'building') {
+    startImagePolling()
+  }
 })
 
 onUnmounted(() => {
   if (pollingInterval) {
     clearInterval(pollingInterval)
     pollingInterval = null
+  }
+  if (imagePollingInterval) {
+    clearInterval(imagePollingInterval)
+    imagePollingInterval = null
   }
 })
 
@@ -588,11 +597,28 @@ async function rebuildImage() {
   try {
     await trpc.project.rebuildImage.mutate({ id: route.params.id as string })
     await loadImageStatus()
+    // Start polling for image build status
+    startImagePolling()
   } catch (err) {
     console.error('Failed to rebuild image:', err)
   } finally {
     rebuildingImage.value = false
   }
+}
+
+// Polling for image build status
+let imagePollingInterval: ReturnType<typeof setInterval> | null = null
+
+function startImagePolling() {
+  if (imagePollingInterval) return
+  imagePollingInterval = setInterval(async () => {
+    await loadImageStatus()
+    // Stop polling when build is complete
+    if (imageStatus.value?.status !== 'building' && imagePollingInterval) {
+      clearInterval(imagePollingInterval)
+      imagePollingInterval = null
+    }
+  }, 3000)
 }
 
 function formatDate(date: Date | string): string {
@@ -660,12 +686,16 @@ async function createSession() {
   newSessionClaudeUser.value = null
   newSessionGitUserName.value = 'lukas.kraic'
   newSessionGitUserEmail.value = 'lukas.kraic@alanata.sk'
+  // Refetch to get fresh data
+  await sessionStore.fetchSessions()
 }
 
 async function startSession(id: string) {
   sessionLoading.value[id] = true
   try {
     await sessionStore.startSession(id)
+    // Start polling for status updates
+    startPolling()
   } finally {
     sessionLoading.value[id] = false
   }
@@ -675,6 +705,8 @@ async function stopSession(id: string) {
   sessionLoading.value[id] = true
   try {
     await sessionStore.stopSession(id)
+    // Start polling for status updates
+    startPolling()
   } finally {
     sessionLoading.value[id] = false
   }

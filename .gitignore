@@ -6,3 +6,10 @@ dist/
 .DS_Store
 coverage/
 .turbo/
+
+# Generated Vue/TS files
+*.vue.js
+*.vue.js.map
+*.vue.d.ts.map
+*.d.ts.map
+tsconfig.tsbuildinfo
