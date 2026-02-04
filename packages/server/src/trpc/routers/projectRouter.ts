@@ -33,6 +33,15 @@ const proxySchema = z.object({
   noProxy: z.string().optional(),
 })
 
+const mcpServerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  command: z.string(),
+  args: z.array(z.string()),
+  env: z.record(z.string()).optional(),
+  enabled: z.boolean(),
+})
+
 const createProjectSchema = z.object({
   name: z.string().min(1).regex(/^[a-z0-9-]+$/),
   description: z.string().optional(),
@@ -69,6 +78,7 @@ const createProjectSchema = z.object({
   claude: z.object({
     claudeMd: z.string().optional(),
     permissions: z.array(z.string()).optional(),
+    mcpServers: z.array(mcpServerSchema).optional(),
   }).optional(),
 })
 

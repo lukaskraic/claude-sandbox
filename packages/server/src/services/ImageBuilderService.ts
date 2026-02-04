@@ -17,7 +17,7 @@ export class ImageBuilderService {
    * Get or build a cached image for a project
    */
   async getOrBuildImage(project: Project): Promise<string> {
-    const configHash = this.hashEnvironmentConfig(project.environment)
+    const configHash = this.hashEnvironmentConfig(project.environment, project.claude)
     const imageTag = `claude-sandbox/${project.name}:${configHash.slice(0, 12)}`
 
     // Check if we have a cached image with this config
@@ -74,9 +74,29 @@ export class ImageBuilderService {
   }
 
   /**
-   * Generate Dockerfile content from project environment config
+   * Get additional packages required by MCP presets
    */
-  generateDockerfile(env: ProjectEnvironment): string {
+  private getMcpPresetPackages(project: Project): string[] {
+    const packages: string[] = []
+    const mcpServers = project.claude?.mcpServers || []
+
+    // Check for Playwright preset
+    const hasPlaywright = mcpServers.some(s =>
+      s.enabled && (s.name === 'playwright' || s.args?.some(arg => arg.includes('@playwright/mcp')))
+    )
+
+    // Playwright deps are installed via 'npx playwright install --with-deps chromium'
+    // No additional apt packages needed here
+    void hasPlaywright
+
+    return packages
+  }
+
+  /**
+   * Generate Dockerfile content from project config
+   */
+  generateDockerfile(project: Project): string {
+    const env = project.environment
     const lines: string[] = []
 
     // Base image
@@ -124,7 +144,8 @@ export class ImageBuilderService {
     }
 
     // Install system packages (including sudo for non-root user support, ripgrep for Claude Code)
-    const systemPackages = ['curl', 'git', 'ca-certificates', 'tmux', 'sudo', 'ripgrep', ...(env.packages || [])]
+    const mcpPackages = this.getMcpPresetPackages(project)
+    const systemPackages = ['curl', 'git', 'ca-certificates', 'tmux', 'sudo', 'ripgrep', ...(env.packages || []), ...mcpPackages]
 
     // Add database clients if services are configured
     if (env.services) {
@@ -149,6 +170,12 @@ export class ImageBuilderService {
     lines.push(`    ${systemPackages.join(' \\\n    ')} \\`)
     lines.push('    && rm -rf /var/lib/apt/lists/*')
     lines.push('')
+
+    // Check if Playwright MCP is enabled
+    const mcpServers = project.claude?.mcpServers || []
+    const hasPlaywright = mcpServers.some(s =>
+      s.enabled && (s.name === 'playwright' || s.args?.some(arg => arg.includes('@playwright/mcp')))
+    )
 
     // Install GitHub CLI (gh)
     lines.push('# Install GitHub CLI')
@@ -250,6 +277,13 @@ export class ImageBuilderService {
       }
     }
 
+    // Install Playwright with Chromium for MCP
+    if (hasPlaywright) {
+      lines.push('# Install Playwright MCP with Chromium')
+      lines.push('RUN npx -y playwright install --with-deps chromium')
+      lines.push('')
+    }
+
     // Note: env.setup is NOT included in Dockerfile - it runs at session start
     // when the worktree is mounted (handled by SessionService)
 
@@ -315,7 +349,7 @@ export class ImageBuilderService {
     const buildPath = path.join(this.buildDir, project.id)
     await fs.mkdir(buildPath, { recursive: true })
 
-    const dockerfile = this.generateDockerfile(project.environment)
+    const dockerfile = this.generateDockerfile(project)
     const dockerfilePath = path.join(buildPath, 'Dockerfile')
     await fs.writeFile(dockerfilePath, dockerfile)
 
@@ -329,9 +363,15 @@ export class ImageBuilderService {
 
   /**
    * Hash environment config for cache key
+   * Includes MCP servers that affect image build (e.g., Playwright deps)
    */
-  private hashEnvironmentConfig(env: ProjectEnvironment): string {
-    const normalized = JSON.stringify(env, Object.keys(env).sort())
+  private hashEnvironmentConfig(env: ProjectEnvironment, mcpServers?: Project['claude']): string {
+    // Include MCP servers in hash since they affect packages installed
+    const configForHash = {
+      env,
+      mcpServers: mcpServers?.mcpServers?.filter(s => s.enabled).map(s => ({ name: s.name, args: s.args })) || []
+    }
+    const normalized = JSON.stringify(configForHash, Object.keys(configForHash).sort())
     return crypto.createHash('sha256').update(normalized).digest('hex')
   }
 }

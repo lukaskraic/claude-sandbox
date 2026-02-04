@@ -402,6 +402,90 @@
                 />
               </v-expansion-panel-text>
             </v-expansion-panel>
+
+            <!-- MCP Servers -->
+            <v-expansion-panel title="MCP Servers">
+              <v-expansion-panel-text>
+                <v-alert type="info" density="compact" class="mb-4">
+                  Configure MCP servers for Claude Code. Playwright preset includes Chromium browser dependencies.
+                </v-alert>
+
+                <div class="d-flex gap-2 mb-4">
+                  <v-menu>
+                    <template #activator="{ props: menuProps }">
+                      <v-btn v-bind="menuProps" prepend-icon="mdi-plus" variant="outlined" size="small">
+                        Add Preset
+                      </v-btn>
+                    </template>
+                    <v-list density="compact">
+                      <v-list-item
+                        title="Playwright"
+                        subtitle="Browser automation with headless Chromium"
+                        @click="addMcpPreset('playwright')"
+                      />
+                    </v-list>
+                  </v-menu>
+                  <v-btn prepend-icon="mdi-plus" variant="outlined" size="small" @click="addCustomMcpServer">
+                    Add Custom
+                  </v-btn>
+                </div>
+
+                <div v-for="(server, index) in formData.claude.mcpServers" :key="server.id" class="mb-4 pa-3 bg-grey-darken-4 rounded">
+                  <v-row align="center">
+                    <v-col cols="3">
+                      <v-text-field
+                        v-model="server.name"
+                        label="Name"
+                        density="compact"
+                        :rules="[rules.required]"
+                      />
+                    </v-col>
+                    <v-col cols="3">
+                      <v-text-field
+                        v-model="server.command"
+                        label="Command"
+                        density="compact"
+                        :rules="[rules.required]"
+                      />
+                    </v-col>
+                    <v-col cols="4">
+                      <v-combobox
+                        v-model="server.args"
+                        label="Arguments"
+                        density="compact"
+                        multiple
+                        chips
+                        closable-chips
+                        hint="Press Enter to add"
+                      />
+                    </v-col>
+                    <v-col cols="1">
+                      <v-switch
+                        :model-value="server.enabled"
+                        hide-details
+                        density="compact"
+                        color="primary"
+                        @update:model-value="toggleMcpServer(index)"
+                      />
+                    </v-col>
+                    <v-col cols="1">
+                      <v-btn icon="mdi-delete" color="error" variant="text" size="small" @click="removeMcpServer(index)" />
+                    </v-col>
+                  </v-row>
+                  <v-row v-if="server.env && Object.keys(server.env).length > 0">
+                    <v-col cols="12">
+                      <div class="text-caption text-grey">
+                        Env: {{ Object.entries(server.env).map(([k, v]) => `${k}=${v}`).join(', ') }}
+                      </div>
+                    </v-col>
+                  </v-row>
+                </div>
+
+                <div v-if="formData.claude.mcpServers.length === 0" class="text-grey text-center py-4">
+                  No MCP servers configured
+                </div>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
           </v-expansion-panels>
         </v-form>
       </v-card-text>
@@ -419,7 +503,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { trpc } from '@/api/trpc'
-import type { Project, ServiceType, ProjectMount } from '@claude-sandbox/shared'
+import type { Project, ServiceType, ProjectMount, MCPServerConfig, MCPPreset } from '@claude-sandbox/shared'
 import * as yaml from 'js-yaml'
 import SqlFileUpload from './SqlFileUpload.vue'
 
@@ -445,6 +529,19 @@ const newEnvKey = ref('')
 const newEnvValue = ref('')
 
 const serviceTypes: ServiceType[] = ['postgres', 'mysql', 'redis', 'mongodb', 'elasticsearch']
+
+// MCP Presets
+const MCP_PRESETS: Record<MCPPreset, Omit<MCPServerConfig, 'id' | 'enabled'>> = {
+  playwright: {
+    name: 'playwright',
+    command: 'npx',
+    args: ['-y', '@playwright/mcp@latest'],
+    env: {
+      PLAYWRIGHT_MCP_HEADLESS: 'true',
+      PLAYWRIGHT_MCP_BROWSER: 'chromium',
+    },
+  },
+}
 
 interface ServiceConfig {
   type: ServiceType
@@ -490,6 +587,7 @@ const formData = reactive({
   claude: {
     claudeMd: '',
     permissions: [] as string[],
+    mcpServers: [] as MCPServerConfig[],
   },
 })
 
@@ -536,6 +634,7 @@ watch(() => props.project, (newProject) => {
     formData.claude = {
       claudeMd: newProject.claude?.claudeMd || '',
       permissions: newProject.claude?.permissions || [],
+      mcpServers: (newProject.claude?.mcpServers || []).map(s => ({ ...s })),
     }
     installClaudeCode.value = newProject.environment.tools?.custom?.includes('claude-code') || false
 
@@ -582,9 +681,10 @@ function updateYamlFromForm() {
       proxy: cleanProxy(),
     },
     mounts: formData.mounts.length > 0 ? formData.mounts : undefined,
-    claude: (formData.claude.claudeMd || formData.claude.permissions.length > 0) ? {
+    claude: (formData.claude.claudeMd || formData.claude.permissions.length > 0 || formData.claude.mcpServers.length > 0) ? {
       claudeMd: formData.claude.claudeMd || undefined,
       permissions: formData.claude.permissions.length > 0 ? formData.claude.permissions : undefined,
+      mcpServers: formData.claude.mcpServers.length > 0 ? formData.claude.mcpServers : undefined,
     } : undefined,
   }
   yamlContent.value = yaml.dump(config, { indent: 2, lineWidth: -1 })
@@ -626,6 +726,7 @@ function updateFormFromYaml() {
   formData.claude = {
     claudeMd: parsed.claude?.claudeMd || '',
     permissions: parsed.claude?.permissions || [],
+    mcpServers: parsed.claude?.mcpServers || [],
   }
   installClaudeCode.value = formData.environment.tools.custom?.includes('claude-code') || false
 }
@@ -674,6 +775,41 @@ function renameEnvVar(oldKey: string, newKey: string) {
   }
 }
 
+function addMcpPreset(preset: MCPPreset) {
+  const presetConfig = MCP_PRESETS[preset]
+  if (!presetConfig) return
+
+  // Check if already added
+  if (formData.claude.mcpServers.some(s => s.name === presetConfig.name)) {
+    return
+  }
+
+  formData.claude.mcpServers.push({
+    id: crypto.randomUUID(),
+    ...presetConfig,
+    enabled: true,
+  })
+}
+
+function addCustomMcpServer() {
+  formData.claude.mcpServers.push({
+    id: crypto.randomUUID(),
+    name: '',
+    command: 'npx',
+    args: [],
+    env: {},
+    enabled: true,
+  })
+}
+
+function removeMcpServer(index: number) {
+  formData.claude.mcpServers.splice(index, 1)
+}
+
+function toggleMcpServer(index: number) {
+  formData.claude.mcpServers[index].enabled = !formData.claude.mcpServers[index].enabled
+}
+
 async function submit() {
   if (editMode.value === 'yaml') {
     try {
@@ -713,9 +849,10 @@ async function submit() {
         proxy: cleanProxy(),
       },
       mounts: formData.mounts.length > 0 ? formData.mounts : undefined,
-      claude: (formData.claude.claudeMd || formData.claude.permissions.length > 0) ? {
+      claude: (formData.claude.claudeMd || formData.claude.permissions.length > 0 || formData.claude.mcpServers.length > 0) ? {
         claudeMd: formData.claude.claudeMd || undefined,
         permissions: formData.claude.permissions.length > 0 ? formData.claude.permissions : undefined,
+        mcpServers: formData.claude.mcpServers.length > 0 ? formData.claude.mcpServers : undefined,
       } : undefined,
     }
 

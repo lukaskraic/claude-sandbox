@@ -1,0 +1,2 @@
+# Cleanup orphaned worktrees every hour
+0 * * * * claude-sandbox /srv/claude-sandbox/app/scripts/cleanup-worktrees.sh

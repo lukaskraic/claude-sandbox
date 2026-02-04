@@ -10,9 +10,22 @@ export interface ProjectMount {
   readonly?: boolean
 }
 
+// MCP Server configuration
+export interface MCPServerConfig {
+  id: string                      // unique identifier
+  name: string                    // display name (e.g., "playwright")
+  command: string                 // command (e.g., "npx")
+  args: string[]                  // arguments (e.g., ["-y", "@playwright/mcp@latest"])
+  env?: Record<string, string>    // environment variables
+  enabled: boolean                // on/off toggle
+}
+
+export type MCPPreset = 'playwright'
+
 export interface ProjectClaudeConfig {
   claudeMd?: string
   permissions?: string[]
+  mcpServers?: MCPServerConfig[]
 }
 
 // Runtime versions

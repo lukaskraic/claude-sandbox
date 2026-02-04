@@ -161,6 +161,24 @@ export class SessionService {
         await fs.writeFile(claudeMdPath, project.claude.claudeMd)
       }
 
+      // Generate .mcp.json if MCP servers are configured
+      if (project.claude?.mcpServers && project.claude.mcpServers.length > 0) {
+        const enabledServers = project.claude.mcpServers.filter(s => s.enabled)
+        if (enabledServers.length > 0) {
+          const mcpConfig: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = {}
+          for (const server of enabledServers) {
+            mcpConfig[server.name] = {
+              command: server.command,
+              args: server.args,
+              ...(server.env && Object.keys(server.env).length > 0 ? { env: server.env } : {}),
+            }
+          }
+          const mcpJsonPath = path.join(worktreePath, '.mcp.json')
+          await fs.writeFile(mcpJsonPath, JSON.stringify({ mcpServers: mcpConfig }, null, 2))
+          logger.info('Generated .mcp.json', { sessionId: id, servers: enabledServers.map(s => s.name) })
+        }
+      }
+
       // Add ACL permissions for container user while keeping server user access
       if (session.claudeSourceUser) {
         const userIds = await getUserIds(session.claudeSourceUser)
