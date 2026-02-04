@@ -107,7 +107,7 @@ sudo setfacl -Rm u:claude-sandbox:rwX /home/<username>/.local
 sudo setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.local
 ```
 
-**For existing git repos** (one-time setup per repo):
+**For existing git repos** (one-time setup per repo per user):
 ```bash
 # Grant container user write access to git directory
 # (needed for git add/commit in worktrees)
@@ -123,7 +123,8 @@ sudo setfacl -Rm u:<username>:rwX /srv/claude-sandbox/data/cache/maven
 sudo setfacl -Rdm u:<username>:rwX /srv/claude-sandbox/data/cache/maven
 ```
 
-Note: For **new sessions**, the service automatically sets ACL on `.git/` and Maven cache directories.
+Note: The service tries to set ACL automatically on session start, but may fail for some files
+(e.g., pack files). **Always run the manual commands above** when adding a new user to a project.
 
 **Why this is needed:**
 - The `claude-sandbox` service runs as a dedicated user, not root
