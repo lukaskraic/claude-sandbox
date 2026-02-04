@@ -1,6 +1,6 @@
 <template>
   <v-container fluid v-if="session" class="pa-2">
-    <v-row class="mb-1" dense align="center">
+    <v-row class="mb-1" dense align="center" no-gutters>
       <v-col cols="auto">
         <v-btn icon="mdi-arrow-left" variant="text" :to="`/projects/${session.projectId}`" size="small" />
       </v-col>
@@ -44,6 +44,32 @@
           {{ port.container }}:{{ port.host }}
           <v-icon end size="x-small">mdi-open-in-new</v-icon>
         </v-chip>
+      </v-col>
+      <v-col cols="auto" v-if="session.gitUserName" class="d-flex align-center">
+        <v-icon size="small" class="mr-1">mdi-account</v-icon>
+        <span class="text-caption">{{ session.gitUserName }}</span>
+        <v-tooltip v-if="session.gitUserEmail" location="bottom">
+          <template #activator="{ props }">
+            <v-icon v-bind="props" size="x-small" class="ml-1">mdi-email-outline</v-icon>
+          </template>
+          {{ session.gitUserEmail }}
+        </v-tooltip>
+      </v-col>
+      <v-col cols="auto" class="d-flex align-center">
+        <v-tooltip location="bottom">
+          <template #activator="{ props }">
+            <v-chip
+              v-bind="props"
+              size="small"
+              :color="session.githubToken ? 'success' : 'grey'"
+              variant="outlined"
+            >
+              <v-icon start size="small">mdi-github</v-icon>
+              {{ session.githubToken ? 'GH Token' : 'No GH Token' }}
+            </v-chip>
+          </template>
+          {{ session.githubToken ? 'GitHub token is configured' : 'No GitHub token - git push will require authentication' }}
+        </v-tooltip>
       </v-col>
       <v-spacer />
       <v-col cols="auto">

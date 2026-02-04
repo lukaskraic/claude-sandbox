@@ -321,10 +321,22 @@
                     <v-chip :color="statusColor(session.status)" size="x-small" variant="tonal" class="mr-2">
                       {{ session.status }}
                     </v-chip>
-                    <span v-if="session.worktree?.branch" class="text-caption">
+                    <span v-if="session.worktree?.branch" class="text-caption mr-2">
                       <v-icon size="x-small">mdi-source-branch</v-icon>
                       {{ session.worktree.branch }}
                     </span>
+                    <span v-if="session.gitUserName" class="text-caption mr-2">
+                      <v-icon size="x-small">mdi-account</v-icon>
+                      {{ session.gitUserName }}
+                    </span>
+                    <v-chip
+                      size="x-small"
+                      :color="session.githubToken ? 'success' : 'grey'"
+                      variant="outlined"
+                    >
+                      <v-icon start size="x-small">mdi-github</v-icon>
+                      {{ session.githubToken ? 'GH' : 'No GH' }}
+                    </v-chip>
                   </v-list-item-subtitle>
                 </router-link>
                 <template #append>

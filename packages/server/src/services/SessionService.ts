@@ -321,6 +321,11 @@ export class SessionService {
           // Prepend ~/.local/bin to PATH for Claude Code binary
           PATH: `${claudeUserHome}/.local/bin:/usr/lib/jvm/java/bin:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`,
         } : {}),
+        // GitHub token for gh CLI and git operations
+        ...(session.githubToken ? {
+          GITHUB_TOKEN: session.githubToken,
+          GH_TOKEN: session.githubToken,
+        } : {}),
       }
 
       // Get UID/GID of the claude source user to run container with same permissions
