@@ -20,13 +20,26 @@ export class GitService {
   async createWorktree(repoPath: string, worktreePath: string, branch: string, baseBranch?: string): Promise<string> {
     const git = simpleGit(repoPath)
 
-    // Check if worktree already exists
+    // Check if worktree already exists and is valid
     try {
       await fs.access(worktreePath)
-      logger.info('Worktree already exists', { worktreePath, branch })
-      const worktreeGit = simpleGit(worktreePath)
-      const log = await worktreeGit.log({ maxCount: 1 })
-      return log.latest?.hash || ''
+
+      // Directory exists - check if it's a valid git worktree (has .git file)
+      const gitFile = path.join(worktreePath, '.git')
+      try {
+        await fs.access(gitFile)
+        // .git file exists - try to use the worktree
+        logger.info('Worktree already exists', { worktreePath, branch })
+        const worktreeGit = simpleGit(worktreePath)
+        const log = await worktreeGit.log({ maxCount: 1 })
+        return log.latest?.hash || ''
+      } catch {
+        // .git file missing - worktree is corrupted, remove and recreate
+        logger.warn('Worktree directory exists but is corrupted (missing .git), removing', { worktreePath })
+        await fs.rm(worktreePath, { recursive: true, force: true })
+        // Also prune stale worktree entries
+        await git.raw(['worktree', 'prune']).catch(() => {})
+      }
     } catch {
       // Worktree doesn't exist, create it
     }
