@@ -115,7 +115,15 @@ sudo setfacl -Rm u:<username>:rwX /srv/claude-sandbox/data/repos/<project>/.git/
 sudo setfacl -Rdm u:<username>:rwX /srv/claude-sandbox/data/repos/<project>/.git/
 ```
 
-Note: For **new sessions**, the service automatically sets ACL on `.git/` directory.
+**For Maven cache** (one-time setup per user):
+```bash
+# Grant container user write access to shared Maven cache
+# (needed for Maven to download dependencies)
+sudo setfacl -Rm u:<username>:rwX /srv/claude-sandbox/data/cache/maven
+sudo setfacl -Rdm u:<username>:rwX /srv/claude-sandbox/data/cache/maven
+```
+
+Note: For **new sessions**, the service automatically sets ACL on `.git/` and Maven cache directories.
 
 **Why this is needed:**
 - The `claude-sandbox` service runs as a dedicated user, not root

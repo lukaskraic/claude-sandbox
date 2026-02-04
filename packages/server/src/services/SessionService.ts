@@ -238,6 +238,21 @@ export class SessionService {
       const mavenCachePath = path.join(this.config.dataDir, 'cache', 'maven')
       try {
         await fs.mkdir(mavenCachePath, { recursive: true })
+
+        // Add ACL for container user to write to Maven cache
+        if (session.claudeSourceUser) {
+          const userIds = await getUserIds(session.claudeSourceUser)
+          if (userIds) {
+            try {
+              await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${mavenCachePath}`)
+              await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${mavenCachePath}`)
+              logger.debug('Added ACL for container user on Maven cache', { sessionId: id, path: mavenCachePath, uid: userIds.uid })
+            } catch (err) {
+              logger.warn('Failed to add ACL for Maven cache', { sessionId: id, error: err })
+            }
+          }
+        }
+
         // Mount to /root/.m2 (default Maven location) - will be used regardless of container user
         // Also mount to user's home .m2 if claudeSourceUser is set
         mounts.push({ source: mavenCachePath, target: '/root/.m2', readonly: false })
