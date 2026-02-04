@@ -129,9 +129,19 @@ Note: For **new sessions**, the service automatically sets ACL on `.git/` direct
 - `licencieclaude13` - ACL added 2026-02-02
 - `licencieclaude21` - ACL added 2026-02-03
 
+## System Dependencies
+
+The following packages must be installed on the server:
+
+```bash
+# Required for cleanup-worktrees.sh cron job
+sudo dnf install sqlite
+```
+
 ## Tech Stack
 
 - **Backend:** Node.js 20, TypeScript, tRPC, Express
 - **Frontend:** Vue 3, Vuetify 3, Shiki (syntax highlight), CodeMirror 6 (editor)
 - **Container:** Podman
 - **Git:** simple-git for worktree management
+- **Database:** SQLite (via better-sqlite3)

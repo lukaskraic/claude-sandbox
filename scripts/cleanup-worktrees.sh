@@ -18,11 +18,15 @@ MAX_DELETIONS_PER_RUN=10  # Safety limit - never delete more than this in one ru
 DRY_RUN="${DRY_RUN:-false}"  # Set DRY_RUN=true to test without deleting
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
+    echo "$msg" >&2
 }
 
 log_error() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" | tee -a "$LOG_FILE" >&2
+    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1"
+    echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
+    echo "$msg" >&2
 }
 
 # Get list of ALL session IDs from database (not just running ones)
