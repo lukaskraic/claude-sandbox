@@ -5,8 +5,39 @@
         <v-btn icon="mdi-arrow-left" variant="text" :to="`/projects/${session.projectId}`" size="small" />
       </v-col>
       <v-col cols="auto" class="d-flex align-center">
-        <span class="text-h6">{{ session.name }}</span>
-        <v-chip :color="statusColor" size="small" class="ml-2">{{ session.status }}</v-chip>
+        <v-select
+          :model-value="session.id"
+          :items="projectSessions"
+          item-title="name"
+          item-value="id"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="session-switcher"
+          @update:model-value="switchSession"
+        >
+          <template #selection="{ item }">
+            <div class="d-flex align-center">
+              <span class="text-h6">{{ item.title }}</span>
+              <v-chip :color="statusColor" size="small" class="ml-2">{{ session.status }}</v-chip>
+            </div>
+          </template>
+          <template #item="{ props, item }">
+            <v-list-item
+              v-bind="props"
+              :title="item.title"
+            >
+              <template #append>
+                <v-chip :color="getStatusColor(item.raw.status)" size="x-small">
+                  {{ item.raw.status }}
+                </v-chip>
+              </template>
+            </v-list-item>
+          </template>
+          <template #prepend-inner>
+            <v-icon size="small" class="mr-1">mdi-swap-horizontal</v-icon>
+          </template>
+        </v-select>
       </v-col>
       <v-col cols="auto" v-if="gitStatus" class="d-flex align-center">
         <v-icon size="small" class="mr-1">mdi-source-branch</v-icon>
@@ -25,8 +56,22 @@
           size="x-small"
           variant="text"
           @click="loadGitStatus"
+          :loading="gitLoading"
           class="ml-1"
+          title="Refresh status"
         />
+        <v-btn
+          v-if="session.status === 'running'"
+          size="x-small"
+          variant="tonal"
+          color="primary"
+          @click="gitPull"
+          :loading="gitPullLoading"
+          class="ml-2"
+        >
+          <v-icon start size="small">mdi-source-pull</v-icon>
+          Pull
+        </v-btn>
       </v-col>
       <v-col cols="auto" v-if="session.status === 'running' && availablePorts.length > 0" class="d-flex align-center">
         <v-icon size="small" class="mr-1">mdi-lan-connect</v-icon>
@@ -493,7 +538,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { trpc } from '@/api/trpc'
@@ -522,6 +567,7 @@ const TEXT_EXTENSIONS = new Set([
 ])
 
 const route = useRoute()
+const router = useRouter()
 const sessionStore = useSessionStore()
 const projectStore = useProjectStore()
 
@@ -535,6 +581,8 @@ const gitPanels = ref<string[]>(['unstaged'])  // Default open unstaged panel
 const expandedFiles = ref<Record<string, boolean>>({})
 const diffLoading = ref(false)
 const logsLoading = ref(false)
+const gitLoading = ref(false)
+const gitPullLoading = ref(false)
 const gitError = ref<string | null>(null)
 const terminalHeight = ref('calc(100vh - 140px)')
 
@@ -554,6 +602,16 @@ const terminalRef = ref<InstanceType<typeof TerminalView> | null>(null)
 
 const session = computed(() => sessionStore.sessionById(route.params.id as string))
 const project = computed(() => session.value ? projectStore.projectById(session.value.projectId) : null)
+
+const projectSessions = computed(() => {
+  if (!session.value) return []
+  return sessionStore.sessionsByProject(session.value.projectId)
+    .sort((a, b) => {
+      if (a.status === 'running' && b.status !== 'running') return -1
+      if (a.status !== 'running' && b.status === 'running') return 1
+      return a.name.localeCompare(b.name)
+    })
+})
 
 // Get available ports with URLs for clicking (using proxy endpoint)
 const availablePorts = computed(() => {
@@ -731,6 +789,22 @@ const statusColor = computed(() => {
   return session.value ? colors[session.value.status] : 'grey'
 })
 
+function getStatusColor(status: SessionStatus): string {
+  const colors: Record<SessionStatus, string> = {
+    pending: 'grey',
+    starting: 'orange',
+    running: 'success',
+    stopping: 'orange',
+    stopped: 'grey',
+    error: 'error',
+  }
+  return colors[status]
+}
+
+function switchSession(sessionId: string) {
+  router.push(`/sessions/${sessionId}`)
+}
+
 function updateHeight() {
   terminalHeight.value = `calc(100vh - 140px)`
 }
@@ -811,6 +885,7 @@ async function loadLogs() {
 async function loadGitStatus() {
   if (!session.value || session.value.status !== 'running') return
   gitError.value = null
+  gitLoading.value = true
 
   try {
     const status = await trpc.session.gitStatus.query({ id: session.value.id })
@@ -819,6 +894,25 @@ async function loadGitStatus() {
     console.error('Failed to load git status:', err)
     gitError.value = err instanceof Error ? err.message : 'Failed to load git status'
     gitStatus.value = null
+  } finally {
+    gitLoading.value = false
+  }
+}
+
+async function gitPull() {
+  if (!session.value || session.value.status !== 'running') return
+  gitPullLoading.value = true
+  gitError.value = null
+
+  try {
+    await trpc.session.gitPull.mutate({ id: session.value.id })
+    // Refresh git status after pull
+    await loadGitStatus()
+  } catch (err) {
+    console.error('Failed to pull:', err)
+    gitError.value = err instanceof Error ? err.message : 'Failed to pull'
+  } finally {
+    gitPullLoading.value = false
   }
 }
 
@@ -1025,6 +1119,25 @@ async function restart() {
 </script>
 
 <style scoped>
+.session-switcher {
+  max-width: 350px;
+  min-width: 250px;
+}
+
+.session-switcher :deep(.v-field) {
+  background: transparent;
+  border: none;
+}
+
+.session-switcher :deep(.v-field__outline) {
+  display: none;
+}
+
+.session-switcher :deep(.v-field__input) {
+  padding: 0;
+  min-height: auto;
+}
+
 .file-toolbar {
   background: #252526;
   border-bottom: 1px solid #333;

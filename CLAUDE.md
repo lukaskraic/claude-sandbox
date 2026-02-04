@@ -15,6 +15,13 @@ claude-sandbox/
 
 ## Deployment
 
+### ⚠️ IMPORTANT: Always ask before deploying!
+
+**Deploy script restarts the service, which terminates all running sessions.**
+- Uncommitted changes in session worktrees will be LOST
+- Always ask user for permission before running deploy.sh
+- Check if there are active sessions: `curl -s http://localhost:3020/trpc/session.list | jq '.result.data[] | select(.status == "running")'`
+
 ### Available sudo commands (no password required)
 
 ```bash

@@ -106,4 +106,27 @@ export const sessionRouter = t.router({
       }
       return ctx.services.gitService.getDiff(session.worktree.path, input.staged)
     }),
+
+  gitPull: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await ctx.services.sessionService.get(input.id)
+      if (!session?.worktree?.path) {
+        throw new Error('Session has no worktree')
+      }
+      await ctx.services.gitService.pull(session.worktree.path)
+      return { success: true }
+    }),
+
+  gitFetch: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await ctx.services.sessionService.get(input.id)
+      if (!session?.worktree?.path) {
+        throw new Error('Session has no worktree')
+      }
+      // Fetch in the worktree context
+      await ctx.services.gitService.fetch(session.worktree.path)
+      return { success: true }
+    }),
 })

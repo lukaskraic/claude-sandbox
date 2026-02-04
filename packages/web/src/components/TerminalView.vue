@@ -66,8 +66,8 @@ onMounted(() => {
     fontSize: 14,
     fontFamily: 'Menlo, Monaco, "Courier New", monospace',
     scrollback: 10000,
-    scrollSensitivity: 3,
-    fastScrollSensitivity: 10,
+    scrollSensitivity: 1,
+    fastScrollSensitivity: 3,
     fastScrollModifier: 'shift',
     smoothScrollDuration: 0,
     theme: {

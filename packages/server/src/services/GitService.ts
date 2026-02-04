@@ -147,4 +147,52 @@ export class GitService {
     await git.pull()
     logger.info('Pulled changes', { path: worktreePath })
   }
+
+  async fetch(repoPath: string): Promise<void> {
+    const git = simpleGit(repoPath)
+    await git.fetch('origin')
+    logger.info('Fetched from origin', { path: repoPath })
+  }
+
+  /**
+   * Verify worktree .git file exists and repair if missing.
+   * The .git file in a worktree is a plain text file containing:
+   * "gitdir: /path/to/main/repo/.git/worktrees/{session-id}"
+   *
+   * This can get corrupted if container operations delete or overwrite it.
+   */
+  async verifyAndRepairWorktree(repoPath: string, worktreePath: string): Promise<boolean> {
+    const gitFile = path.join(worktreePath, '.git')
+    const sessionId = path.basename(worktreePath)
+    const expectedGitdir = path.join(repoPath, '.git', 'worktrees', sessionId)
+
+    try {
+      // Check if .git file exists
+      const stat = await fs.stat(gitFile)
+      if (stat.isFile()) {
+        // File exists - verify content
+        const content = await fs.readFile(gitFile, 'utf-8')
+        if (content.includes('gitdir:')) {
+          logger.debug('Worktree .git file is valid', { worktreePath })
+          return true
+        }
+      }
+    } catch {
+      // .git file doesn't exist or can't be read
+    }
+
+    // Check if worktree entry exists in main repo
+    try {
+      await fs.access(expectedGitdir)
+      // Worktree entry exists - recreate .git file
+      const gitdirContent = `gitdir: ${expectedGitdir}\n`
+      await fs.writeFile(gitFile, gitdirContent)
+      logger.info('Repaired worktree .git file', { worktreePath, gitdir: expectedGitdir })
+      return true
+    } catch {
+      // Worktree entry doesn't exist in main repo - cannot repair
+      logger.warn('Cannot repair worktree - no entry in main repo', { worktreePath, expectedGitdir })
+      return false
+    }
+  }
 }

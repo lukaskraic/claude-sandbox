@@ -145,6 +145,9 @@ export class SessionService {
       const repoPath = path.join(this.config.dataDir, 'repos', project.name)
       await this.gitService.cloneIfNeeded(project.git.remote, repoPath, project.git.defaultBranch)
 
+      // Fetch latest changes from remote before creating worktree
+      await this.gitService.fetch(repoPath)
+
       // Use session's specified branch, or create unique session branch based on project's default
       const userBranch = session.worktree?.branch
       const baseBranch = project.git.defaultBranch || 'main'
@@ -223,6 +226,23 @@ export class SessionService {
           readonly: m.readonly,
         })),
       ]
+
+      // Mount shared Maven cache to prevent .m2 pollution in worktree
+      // Maven creates ~/.m2 which would end up in /workspace if HOME points there
+      // This mount ensures Maven cache is shared across sessions and not tracked by git
+      const mavenCachePath = path.join(this.config.dataDir, 'cache', 'maven')
+      try {
+        await fs.mkdir(mavenCachePath, { recursive: true })
+        // Mount to /root/.m2 (default Maven location) - will be used regardless of container user
+        // Also mount to user's home .m2 if claudeSourceUser is set
+        mounts.push({ source: mavenCachePath, target: '/root/.m2', readonly: false })
+        if (session.claudeSourceUser) {
+          mounts.push({ source: mavenCachePath, target: `/home/${session.claudeSourceUser}/.m2`, readonly: false })
+        }
+        logger.debug('Mounting shared Maven cache', { sessionId: id, path: mavenCachePath })
+      } catch (err) {
+        logger.warn('Failed to create Maven cache directory', { sessionId: id, error: err })
+      }
 
       // Add .claude directory mount if user specified
       // Must use same path as on host because Claude Code stores absolute paths in config
@@ -450,6 +470,13 @@ export class SessionService {
         if (result.exitCode !== 0) {
           logger.warn('Setup script failed', { sessionId: id, exitCode: result.exitCode, output: result.output })
         }
+      }
+
+      // Verify worktree .git file after all setup operations
+      // Container operations (setup scripts, git commands) can corrupt the .git file
+      const worktreeValid = await this.gitService.verifyAndRepairWorktree(repoPath, worktreePath)
+      if (!worktreeValid) {
+        logger.error('Worktree verification failed - git operations may not work', { sessionId: id, worktreePath })
       }
 
       const updated = this.sessionRepo.updateStatus(id, 'running')
