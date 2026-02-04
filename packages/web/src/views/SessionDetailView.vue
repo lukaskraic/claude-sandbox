@@ -113,6 +113,18 @@
         </v-tabs>
         <v-spacer />
         <v-btn
+          v-if="session.status === 'running'"
+          size="small"
+          variant="tonal"
+          color="primary"
+          class="mr-2"
+          @click="startClaudeCode"
+          title="Start Claude Code"
+        >
+          <v-icon start>mdi-robot</v-icon>
+          Claude
+        </v-btn>
+        <v-btn
           icon="mdi-help-circle-outline"
           size="small"
           variant="text"
@@ -125,6 +137,7 @@
         <v-window v-model="activeTab" style="height: 100%;">
           <v-window-item value="terminal" style="height: 100%; overflow: hidden;">
             <TerminalView
+              ref="terminalRef"
               v-if="session.status === 'running'"
               :session-id="session.id"
               :active="activeTab === 'terminal'"
@@ -537,6 +550,7 @@ const showNewFolderDialog = ref(false)
 const showClipboardHelp = ref(false)
 const newFileName = ref('')
 const newFolderName = ref('')
+const terminalRef = ref<InstanceType<typeof TerminalView> | null>(null)
 
 const session = computed(() => sessionStore.sessionById(route.params.id as string))
 const project = computed(() => session.value ? projectStore.projectById(session.value.projectId) : null)
@@ -763,6 +777,11 @@ watch(activeTab, async (tab) => {
     await loadLogs()
   }
 })
+
+function startClaudeCode() {
+  terminalRef.value?.sendInput('claude --dangerously-skip-permissions\n')
+  activeTab.value = 'terminal'
+}
 
 async function loadSessionData() {
   if (!session.value) return

@@ -228,14 +228,17 @@ async function uploadImage(file: File): Promise<string | null> {
 function setupClipboard() {
   if (!terminal || !terminalContainer.value) return
 
-  // Handle paste event for images
+  // Handle paste event - prevent default to avoid double paste
+  // Text paste is handled by keydown handler (Cmd+V / Ctrl+V)
+  // This handler only processes images
   terminalContainer.value.addEventListener('paste', async (event: ClipboardEvent) => {
+    event.preventDefault() // Always prevent default to avoid double paste
+
     const items = event.clipboardData?.items
     if (!items) return
 
     for (const item of items) {
       if (item.type.startsWith('image/')) {
-        event.preventDefault()
         const file = item.getAsFile()
         if (file) {
           const imagePath = await uploadImage(file)
@@ -246,6 +249,9 @@ function setupClipboard() {
         return
       }
     }
+
+    // For text paste, let the keydown handler deal with it
+    // (this event fires after keydown, so handlePaste was already called)
   })
 
   // Auto-copy selection to clipboard on mouse up
@@ -471,6 +477,11 @@ function handleWheel(event: WheelEvent) {
   // tmux handles the actual terminal scrolling
   event.preventDefault()
 }
+
+// Expose sendInput for parent components
+defineExpose({
+  sendInput,
+})
 
 </script>
 
