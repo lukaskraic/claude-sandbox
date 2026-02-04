@@ -465,6 +465,26 @@
       </v-card>
     </v-dialog>
 
+    <!-- Delete Session Confirmation Dialog -->
+    <v-dialog v-model="showDeleteConfirm" max-width="400">
+      <v-card>
+        <v-card-title class="text-error">
+          <v-icon class="mr-2" color="error">mdi-delete-alert</v-icon>
+          Delete Session
+        </v-card-title>
+        <v-card-text>
+          Are you sure you want to delete this session? This will remove the container and worktree permanently.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="showDeleteConfirm = false" :disabled="deletingSession">Cancel</v-btn>
+          <v-btn color="error" @click="confirmDeleteSession" :loading="deletingSession">
+            Delete
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Edit Project Dialog -->
     <EditProjectDialog
       v-model="showEditProject"
@@ -490,6 +510,9 @@ const sessionStore = useSessionStore()
 
 const showCreateSession = ref(false)
 const showEditProject = ref(false)
+const showDeleteConfirm = ref(false)
+const sessionToDelete = ref<string | null>(null)
+const deletingSession = ref(false)
 const newSessionName = ref('')
 const newSessionBranch = ref('')
 const newSessionClaudeUser = ref<string | null>(null)
@@ -735,12 +758,22 @@ async function stopSession(id: string) {
   }
 }
 
-async function deleteSession(id: string) {
-  if (!confirm('Are you sure you want to delete this session?')) return
+function deleteSession(id: string) {
+  sessionToDelete.value = id
+  showDeleteConfirm.value = true
+}
+
+async function confirmDeleteSession() {
+  if (!sessionToDelete.value) return
+  deletingSession.value = true
   try {
-    await sessionStore.removeSession(id)
+    await sessionStore.removeSession(sessionToDelete.value)
+    showDeleteConfirm.value = false
+    sessionToDelete.value = null
   } catch (err) {
     console.error('Failed to delete session:', err)
+  } finally {
+    deletingSession.value = false
   }
 }
 
