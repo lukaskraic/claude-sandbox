@@ -234,6 +234,268 @@ Cached Docker images indexed by configuration hash for fast session startup.
 - **Authentication** - Session-based auth with SQLite-persisted sessions
 - **Permission Model** - ACL-based permissions without requiring root access
 
+## Installation Guide
+
+### Prerequisites
+
+#### System Requirements
+- Linux server (RHEL/CentOS 9, Ubuntu 22.04+, Debian 12+)
+- 4GB+ RAM recommended
+- 20GB+ disk space for containers and worktrees
+
+#### Software Dependencies
+- **Node.js 20+** - JavaScript runtime
+- **pnpm** - Package manager
+- **Podman** (recommended) or Docker - Container runtime
+- **Git** - Version control
+- **ACL tools** - For permission management (`setfacl`)
+
+### Step 1: Install System Dependencies
+
+#### RHEL/CentOS 9
+```bash
+# Install Node.js 20
+dnf module install nodejs:20
+
+# Install pnpm
+npm install -g pnpm
+
+# Install Podman
+dnf install podman
+
+# Install ACL tools
+dnf install acl
+
+# Enable Podman socket for rootless containers
+systemctl --user enable --now podman.socket
+```
+
+#### Ubuntu/Debian
+```bash
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+apt install -y nodejs
+
+# Install pnpm
+npm install -g pnpm
+
+# Install Podman
+apt install -y podman
+
+# Install ACL tools
+apt install -y acl
+
+# Enable Podman socket
+systemctl --user enable --now podman.socket
+```
+
+### Step 2: Create Service User
+
+```bash
+# Create dedicated user for the service
+useradd -r -m -d /srv/claude-sandbox claude-sandbox
+
+# Create directory structure
+mkdir -p /srv/claude-sandbox/{app,data,worktrees}
+chown -R claude-sandbox:claude-sandbox /srv/claude-sandbox
+```
+
+### Step 3: Clone and Build
+
+```bash
+# Clone repository
+cd /srv/claude-sandbox
+git clone <repository-url> app
+cd app
+
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+```
+
+### Step 4: Configure Podman Socket Access
+
+The service needs access to Podman socket for container management:
+
+```bash
+# Option A: Use system-wide Podman socket (recommended for production)
+systemctl enable --now podman.socket
+
+# Grant service user access to Podman socket
+usermod -aG podman claude-sandbox
+```
+
+Or configure rootless Podman:
+
+```bash
+# As claude-sandbox user
+su - claude-sandbox
+systemctl --user enable --now podman.socket
+```
+
+### Step 5: Create systemd Service
+
+Create `/etc/systemd/system/claude-sandbox.service`:
+
+```ini
+[Unit]
+Description=Claude Sandbox Platform
+After=network.target podman.socket
+
+[Service]
+Type=simple
+User=claude-sandbox
+Group=claude-sandbox
+WorkingDirectory=/srv/claude-sandbox/app
+ExecStart=/usr/bin/node packages/server/dist/index.js
+Restart=on-failure
+RestartSec=5
+
+# Environment
+Environment="NODE_ENV=production"
+Environment="PORT=3020"
+Environment="HOST=127.0.0.1"
+Environment="DATA_DIR=/srv/claude-sandbox/data"
+Environment="WORKTREE_BASE=/srv/claude-sandbox/worktrees"
+Environment="CONTAINER_RUNTIME=podman"
+Environment="CONTAINER_SOCKET=/run/podman/podman.sock"
+Environment="LOG_LEVEL=info"
+
+# Authentication (change these!)
+Environment="AUTH_USERS=admin:changeme"
+
+# Users whose .claude directory can be mounted
+Environment="CLAUDE_SOURCE_USERS=user1,user2"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service:
+
+```bash
+systemctl daemon-reload
+systemctl enable --now claude-sandbox
+systemctl status claude-sandbox
+```
+
+### Step 6: Configure Reverse Proxy (Optional)
+
+#### Nginx
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name sandbox.example.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:3020;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket timeout
+        proxy_read_timeout 86400;
+    }
+}
+```
+
+#### Apache httpd
+
+```apache
+<VirtualHost *:443>
+    ServerName sandbox.example.com
+
+    SSLEngine on
+    SSLCertificateFile /path/to/cert.pem
+    SSLCertificateKeyFile /path/to/key.pem
+
+    ProxyPreserveHost On
+    ProxyPass / http://127.0.0.1:3020/
+    ProxyPassReverse / http://127.0.0.1:3020/
+
+    # WebSocket support
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^/?(.*) ws://127.0.0.1:3020/$1 [P,L]
+</VirtualHost>
+```
+
+### Step 7: Configure User Access
+
+For each user who wants to use their Claude Code configuration:
+
+```bash
+# Grant service access to user's home directory (for path traversal)
+setfacl -m u:claude-sandbox:rx /home/<username>
+
+# Grant access to .claude directory
+setfacl -Rm u:claude-sandbox:rwX /home/<username>/.claude
+setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.claude
+
+# Grant access to .local directory (Claude Code binary)
+setfacl -Rm u:claude-sandbox:rwX /home/<username>/.local
+setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.local
+```
+
+Add user to `CLAUDE_SOURCE_USERS` environment variable in the service file.
+
+### Step 8: Verify Installation
+
+```bash
+# Check service status
+systemctl status claude-sandbox
+
+# Check logs
+journalctl -u claude-sandbox -f
+
+# Test API
+curl http://127.0.0.1:3020/health
+# Should return: {"status":"ok","timestamp":"..."}
+
+# Test authentication
+curl http://127.0.0.1:3020/trpc/auth.me
+# Should return: {"result":{"data":{"user":null,"authRequired":true}}}
+```
+
+### Troubleshooting
+
+#### Container permission issues
+```bash
+# Check Podman socket permissions
+ls -la /run/podman/podman.sock
+
+# Verify service user can access Podman
+su - claude-sandbox -c "podman ps"
+```
+
+#### Git worktree issues
+```bash
+# Configure git safe.directory globally
+git config --global --add safe.directory '*'
+```
+
+#### ACL not working
+```bash
+# Check if ACL is supported on filesystem
+mount | grep acl
+
+# Re-mount with ACL support if needed
+mount -o remount,acl /home
+```
+
+---
+
 ## Development
 
 ### Prerequisites
@@ -250,7 +512,7 @@ pnpm install
 # Build all packages
 pnpm build
 
-# Development mode
+# Development mode (with hot reload)
 pnpm dev
 ```
 
