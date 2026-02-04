@@ -10,6 +10,12 @@ coverage/
 # Generated Vue/TS files
 *.vue.js
 *.vue.js.map
+*.vue.d.ts
 *.vue.d.ts.map
 *.d.ts.map
 tsconfig.tsbuildinfo
+
+# Generated JS files in web src (should not be committed)
+packages/web/src/**/*.js
+packages/web/src/**/*.js.map
+packages/web/src/**/*.d.ts
