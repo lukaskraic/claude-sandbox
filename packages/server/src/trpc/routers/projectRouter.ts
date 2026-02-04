@@ -1,9 +1,6 @@
 import { z } from 'zod'
-import { initTRPC } from '@trpc/server'
-import type { Context } from '../context.js'
 import type { CreateProjectInput, UpdateProjectInput } from '@claude-sandbox/shared'
-
-const t = initTRPC.context<Context>().create()
+import { t, protectedProcedure } from '../trpc.js'
 
 // Helper to convert null to undefined recursively
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,48 +82,48 @@ const createProjectSchema = z.object({
 const updateProjectSchema = createProjectSchema.partial()
 
 export const projectRouter = t.router({
-  list: t.procedure.query(({ ctx }) => {
+  list: protectedProcedure.query(({ ctx }) => {
     return ctx.services.projectService.list()
   }),
 
-  get: t.procedure
+  get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.projectService.get(input.id)
     }),
 
-  getByName: t.procedure
+  getByName: protectedProcedure
     .input(z.object({ name: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.projectService.getByName(input.name)
     }),
 
-  create: t.procedure
+  create: protectedProcedure
     .input(createProjectSchema)
     .mutation(({ ctx, input }) => {
       return ctx.services.projectService.create(nullToUndefined(input) as CreateProjectInput)
     }),
 
-  update: t.procedure
+  update: protectedProcedure
     .input(z.object({ id: z.string(), data: updateProjectSchema }))
     .mutation(({ ctx, input }) => {
       return ctx.services.projectService.update(input.id, nullToUndefined(input.data) as UpdateProjectInput)
     }),
 
-  delete: t.procedure
+  delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.services.projectService.delete(input.id)
       return { success: true }
     }),
 
-  validate: t.procedure
+  validate: protectedProcedure
     .input(createProjectSchema)
     .mutation(({ ctx, input }) => {
       return ctx.services.projectService.validate(nullToUndefined(input) as CreateProjectInput)
     }),
 
-  rebuildImage: t.procedure
+  rebuildImage: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const project = await ctx.services.projectService.get(input.id)
@@ -137,7 +134,7 @@ export const projectRouter = t.router({
       return { imageTag }
     }),
 
-  getImageStatus: t.procedure
+  getImageStatus: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.imageBuilderService.getImageStatus(input.id)

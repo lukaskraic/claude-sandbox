@@ -27,6 +27,7 @@ cat > "$APP_DIR/packages/server/package.json" << 'PKGJSON'
   "dependencies": {
     "@trpc/server": "^10.45.0",
     "better-sqlite3": "^9.4.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dockerode": "^4.0.0",
     "express": "^4.18.2",

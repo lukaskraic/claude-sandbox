@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/authStore'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -6,6 +7,12 @@ const router = createRouter({
     {
       path: '/',
       redirect: '/projects',
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginView.vue'),
+      meta: { public: true },
     },
     {
       path: '/projects',
@@ -33,6 +40,29 @@ const router = createRouter({
       component: () => import('@/views/SessionDetailView.vue'),
     },
   ],
+})
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+
+  // Check auth status on first load
+  await auth.checkAuth()
+
+  // Public routes don't require auth
+  if (to.meta.public) {
+    // If already authenticated, redirect to projects
+    if (auth.isAuthenticated.value && to.path === '/login') {
+      return '/projects'
+    }
+    return true
+  }
+
+  // Protected routes - redirect to login if not authenticated
+  if (!auth.isAuthenticated.value) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  return true
 })
 
 export default router

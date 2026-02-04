@@ -1,11 +1,9 @@
 import { z } from 'zod'
-import { initTRPC, TRPCError } from '@trpc/server'
-import type { Context } from '../context.js'
+import { TRPCError } from '@trpc/server'
 import { readdir, readFile, writeFile, rm, stat, mkdir } from 'fs/promises'
 import { join, resolve, dirname } from 'path'
 import { realpathSync, existsSync } from 'fs'
-
-const t = initTRPC.context<Context>().create()
+import { t, protectedProcedure } from '../trpc.js'
 
 /**
  * Validates that the path doesn't contain dangerous characters.
@@ -75,7 +73,7 @@ function validatePath(worktreePath: string, requestedPath: string, requireExists
 }
 
 export const fileRouter = t.router({
-  list: t.procedure
+  list: protectedProcedure
     .input(z.object({
       sessionId: z.string(),
       path: z.string().default('.'),
@@ -108,7 +106,7 @@ export const fileRouter = t.router({
       }
     }),
 
-  read: t.procedure
+  read: protectedProcedure
     .input(z.object({
       sessionId: z.string(),
       path: z.string(),
@@ -155,7 +153,7 @@ export const fileRouter = t.router({
       }
     }),
 
-  write: t.procedure
+  write: protectedProcedure
     .input(z.object({
       sessionId: z.string(),
       path: z.string(),
@@ -194,7 +192,7 @@ export const fileRouter = t.router({
       }
     }),
 
-  delete: t.procedure
+  delete: protectedProcedure
     .input(z.object({
       sessionId: z.string(),
       path: z.string(),

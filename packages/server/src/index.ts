@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 import path from 'path'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
@@ -15,11 +16,13 @@ import { SessionService } from './services/SessionService.js'
 import { GitService } from './services/GitService.js'
 import { ContainerService } from './services/ContainerService.js'
 import { ImageBuilderService } from './services/ImageBuilderService.js'
+import { AuthService } from './services/AuthService.js'
 import { appRouter } from './trpc/router.js'
 import { createContextFactory } from './trpc/context.js'
 import { createTerminalHandler } from './ws/terminalHandler.js'
 import { createUploadRouter } from './api/uploads.js'
 import { createProxyRouter, createProxyWebSocketHandler } from './api/proxy.js'
+import { requireAuth, checkWebSocketAuth } from './middleware/auth.js'
 import { promises as fs } from 'fs'
 import { execFileSync } from 'child_process'
 
@@ -70,14 +73,18 @@ async function main() {
   // Sync session status with actual container status after restart
   await sessionService.syncSessionsWithContainers()
 
-  const services = { projectService, sessionService, gitService, containerService, imageBuilderService }
+  const authService = new AuthService(db, config)
+
+  const services = { projectService, sessionService, gitService, containerService, imageBuilderService, authService }
   const createContext = createContextFactory(services, config)
 
   const app = express()
-  app.use(cors())
+  app.use(cors({ credentials: true, origin: true }))
+  app.use(cookieParser())
 
   // Proxy MUST be before express.json() to preserve raw request body for piping
-  app.use('/proxy', createProxyRouter(sessionService))
+  // Also requires auth
+  app.use('/proxy', requireAuth(authService), createProxyRouter(sessionService))
 
   app.use(express.json())
 
@@ -85,8 +92,8 @@ async function main() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
   })
 
-  // File upload API
-  app.use('/api/upload', createUploadRouter(config.dataDir, sessionService, containerService))
+  // File upload API (requires auth)
+  app.use('/api/upload', requireAuth(authService), createUploadRouter(config.dataDir, sessionService, containerService))
 
   app.use('/trpc', trpcExpress.createExpressMiddleware({
     router: appRouter,
@@ -130,6 +137,14 @@ async function main() {
   // Handle WebSocket upgrades manually to route to correct handler
   server.on('upgrade', (req, socket, head) => {
     const pathname = req.url?.split('?')[0] || ''
+
+    // Check authentication for WebSocket connections
+    const user = checkWebSocketAuth(req, authService)
+    if (!user) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+      socket.destroy()
+      return
+    }
 
     if (pathname === '/ws') {
       // Terminal WebSocket

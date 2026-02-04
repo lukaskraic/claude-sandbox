@@ -1,13 +1,12 @@
-import { initTRPC } from '@trpc/server'
-import type { Context } from './context.js'
+import { t } from './trpc.js'
 import { projectRouter } from './routers/projectRouter.js'
 import { sessionRouter } from './routers/sessionRouter.js'
 import { fileRouter } from './routers/fileRouter.js'
 import { containerRouter } from './routers/containerRouter.js'
-
-const t = initTRPC.context<Context>().create()
+import { authRouter } from './routers/authRouter.js'
 
 export const appRouter = t.router({
+  auth: authRouter,
   project: projectRouter,
   session: sessionRouter,
   file: fileRouter,

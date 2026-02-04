@@ -48,4 +48,13 @@ CREATE TABLE IF NOT EXISTS project_images (
 
 CREATE INDEX IF NOT EXISTS idx_project_images_project_id ON project_images(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_images_config_hash ON project_images(config_hash);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  last_accessed INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_username ON auth_sessions(username);
 `

@@ -1,14 +1,11 @@
 import { z } from 'zod'
-import { initTRPC } from '@trpc/server'
-import type { Context } from '../context.js'
-
-const t = initTRPC.context<Context>().create()
+import { t, protectedProcedure } from '../trpc.js'
 
 export const containerRouter = t.router({
   /**
    * List containers for a project
    */
-  listByProject: t.procedure
+  listByProject: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.containerService.listContainersByProject(input.projectId)
@@ -17,7 +14,7 @@ export const containerRouter = t.router({
   /**
    * List images for a project
    */
-  listImages: t.procedure
+  listImages: protectedProcedure
     .input(z.object({ projectName: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.containerService.listImagesByProject(input.projectName)
@@ -26,7 +23,7 @@ export const containerRouter = t.router({
   /**
    * List networks for a project
    */
-  listNetworks: t.procedure
+  listNetworks: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.containerService.listNetworksByProject(input.projectId)
@@ -35,7 +32,7 @@ export const containerRouter = t.router({
   /**
    * List volumes for a project
    */
-  listVolumes: t.procedure
+  listVolumes: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.containerService.listVolumesByProject(input.projectId)
@@ -44,7 +41,7 @@ export const containerRouter = t.router({
   /**
    * Get stats for a single container
    */
-  getStats: t.procedure
+  getStats: protectedProcedure
     .input(z.object({ containerId: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.containerService.getContainerStats(input.containerId)
@@ -53,7 +50,7 @@ export const containerRouter = t.router({
   /**
    * Get resource summary for a project
    */
-  getSummary: t.procedure
+  getSummary: protectedProcedure
     .input(z.object({
       projectId: z.string(),
       projectName: z.string(),
@@ -71,7 +68,7 @@ export const containerRouter = t.router({
   /**
    * Find orphaned containers
    */
-  findOrphans: t.procedure
+  findOrphans: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(async ({ ctx, input }) => {
       const sessions = await ctx.services.sessionService.listByProject(input.projectId)
@@ -82,7 +79,7 @@ export const containerRouter = t.router({
   /**
    * Stop a single container
    */
-  stop: t.procedure
+  stop: protectedProcedure
     .input(z.object({ containerId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.services.containerService.stopContainer(input.containerId)
@@ -92,7 +89,7 @@ export const containerRouter = t.router({
   /**
    * Start a container
    */
-  start: t.procedure
+  start: protectedProcedure
     .input(z.object({ containerId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.services.containerService.startContainer(input.containerId)
@@ -102,7 +99,7 @@ export const containerRouter = t.router({
   /**
    * Remove a single container
    */
-  remove: t.procedure
+  remove: protectedProcedure
     .input(z.object({ containerId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.services.containerService.removeContainer(input.containerId)
@@ -112,7 +109,7 @@ export const containerRouter = t.router({
   /**
    * Stop multiple containers
    */
-  batchStop: t.procedure
+  batchStop: protectedProcedure
     .input(z.object({ containerIds: z.array(z.string()) }))
     .mutation(({ ctx, input }) => {
       return ctx.services.containerService.stopContainersBatch(input.containerIds)
@@ -121,7 +118,7 @@ export const containerRouter = t.router({
   /**
    * Remove multiple containers
    */
-  batchRemove: t.procedure
+  batchRemove: protectedProcedure
     .input(z.object({ containerIds: z.array(z.string()) }))
     .mutation(({ ctx, input }) => {
       return ctx.services.containerService.removeContainersBatch(input.containerIds)
@@ -130,7 +127,7 @@ export const containerRouter = t.router({
   /**
    * Remove an image
    */
-  removeImage: t.procedure
+  removeImage: protectedProcedure
     .input(z.object({ imageId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.services.containerService.removeImageById(input.imageId)
@@ -140,7 +137,7 @@ export const containerRouter = t.router({
   /**
    * Cleanup orphaned containers for a project
    */
-  cleanupOrphans: t.procedure
+  cleanupOrphans: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const sessions = await ctx.services.sessionService.listByProject(input.projectId)

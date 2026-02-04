@@ -1,31 +1,28 @@
 import { z } from 'zod'
-import { initTRPC } from '@trpc/server'
-import type { Context } from '../context.js'
-
-const t = initTRPC.context<Context>().create()
+import { t, protectedProcedure } from '../trpc.js'
 
 export const sessionRouter = t.router({
-  claudeSourceUsers: t.procedure.query(({ ctx }) => {
+  claudeSourceUsers: protectedProcedure.query(({ ctx }) => {
     return ctx.config.claudeSourceUsers
   }),
 
-  list: t.procedure.query(({ ctx }) => {
+  list: protectedProcedure.query(({ ctx }) => {
     return ctx.services.sessionService.list()
   }),
 
-  listByProject: t.procedure
+  listByProject: protectedProcedure
     .input(z.object({ projectId: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.sessionService.listByProject(input.projectId)
     }),
 
-  get: t.procedure
+  get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.sessionService.get(input.id)
     }),
 
-  create: t.procedure
+  create: protectedProcedure
     .input(z.object({
       projectId: z.string(),
       name: z.string(),
@@ -49,38 +46,38 @@ export const sessionRouter = t.router({
       )
     }),
 
-  start: t.procedure
+  start: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) => {
       return ctx.services.sessionService.start(input.id)
     }),
 
-  stop: t.procedure
+  stop: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) => {
       return ctx.services.sessionService.stop(input.id)
     }),
 
-  restart: t.procedure
+  restart: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ ctx, input }) => {
       return ctx.services.sessionService.restart(input.id)
     }),
 
-  remove: t.procedure
+  remove: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.services.sessionService.remove(input.id)
       return { success: true }
     }),
 
-  logs: t.procedure
+  logs: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(({ ctx, input }) => {
       return ctx.services.sessionService.getLogs(input.id)
     }),
 
-  gitStatus: t.procedure
+  gitStatus: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const session = await ctx.services.sessionService.get(input.id)
@@ -90,7 +87,7 @@ export const sessionRouter = t.router({
       return ctx.services.gitService.getStatus(session.worktree.path)
     }),
 
-  gitLog: t.procedure
+  gitLog: protectedProcedure
     .input(z.object({ id: z.string(), limit: z.number().optional() }))
     .query(async ({ ctx, input }) => {
       const session = await ctx.services.sessionService.get(input.id)
@@ -100,7 +97,7 @@ export const sessionRouter = t.router({
       return ctx.services.gitService.getLog(session.worktree.path, input.limit)
     }),
 
-  gitDiff: t.procedure
+  gitDiff: protectedProcedure
     .input(z.object({ id: z.string(), staged: z.boolean().optional() }))
     .query(async ({ ctx, input }) => {
       const session = await ctx.services.sessionService.get(input.id)

@@ -9,6 +9,10 @@ const configSchema = z.object({
   containerSocket: z.string().default('/run/podman/podman.sock'),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   claudeSourceUsers: z.array(z.string()).default([]),
+  authUsers: z.array(z.object({
+    username: z.string(),
+    password: z.string(),
+  })).default([]),
 })
 
 export type Config = z.infer<typeof configSchema>
@@ -20,6 +24,16 @@ export function loadConfig(): Config {
     'kula',
   ]
 
+  // Parse AUTH_USERS=user1:pass1,user2:pass2
+  const authUsers = (process.env.AUTH_USERS || '')
+    .split(',')
+    .filter(Boolean)
+    .map(entry => {
+      const [username, password] = entry.split(':')
+      return { username: username?.trim(), password: password?.trim() }
+    })
+    .filter(u => u.username && u.password) as { username: string; password: string }[]
+
   return configSchema.parse({
     port: parseInt(process.env.PORT || '3020'),
     host: process.env.HOST || '127.0.0.1',
@@ -29,5 +43,6 @@ export function loadConfig(): Config {
     containerSocket: process.env.CONTAINER_SOCKET || '/run/podman/podman.sock',
     logLevel: process.env.LOG_LEVEL || 'info',
     claudeSourceUsers: claudeUsers,
+    authUsers,
   })
 }
