@@ -146,7 +146,12 @@ export class SessionService {
       await this.gitService.cloneIfNeeded(project.git.remote, repoPath, project.git.defaultBranch)
 
       // Fetch latest changes from remote before creating worktree
-      await this.gitService.fetch(repoPath)
+      // This may fail for private repos without credentials - don't block session start
+      try {
+        await this.gitService.fetch(repoPath)
+      } catch (err) {
+        logger.warn('Failed to fetch from remote (may need credentials)', { repoPath, error: err })
+      }
 
       // Use session's specified branch, or create unique session branch based on project's default
       const userBranch = session.worktree?.branch
