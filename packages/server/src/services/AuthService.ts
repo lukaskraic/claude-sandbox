@@ -24,7 +24,7 @@ export class AuthService {
     }
 
     if (this.users.size === 0) {
-      logger.warn('No auth users configured - authentication will fail for all requests')
+      logger.info('No auth users configured - running without authentication')
     } else {
       logger.info(`Auth configured with ${this.users.size} user(s)`)
     }

@@ -190,8 +190,24 @@ CONTAINER_RUNTIME=podman           # Container runtime (podman/docker)
 CONTAINER_SOCKET=/run/podman/podman.sock
 LOG_LEVEL=info                     # Logging level
 CLAUDE_SOURCE_USERS=user1,user2    # Users whose .claude can be mounted
-AUTH_USERS=user:password           # Authentication credentials
+AUTH_USERS=user:password           # Authentication credentials (optional)
 ```
+
+### Authentication
+
+Authentication is **optional**. If `AUTH_USERS` is not set or empty, the application runs without login - anyone can access the web UI.
+
+To enable authentication, set `AUTH_USERS` with comma-separated `username:password` pairs:
+
+```bash
+# Single user
+AUTH_USERS=admin:secretpassword
+
+# Multiple users
+AUTH_USERS=admin:pass1,developer:pass2,guest:pass3
+```
+
+**Security note:** For production deployments exposed to the internet, always configure authentication or use a reverse proxy with its own auth layer.
 
 ### Claude Code Integration
 
@@ -427,8 +443,8 @@ Environment="CONTAINER_RUNTIME=podman"
 Environment="CONTAINER_SOCKET=/run/podman/podman.sock"
 Environment="LOG_LEVEL=info"
 
-# Authentication (change these!)
-Environment="AUTH_USERS=admin:changeme"
+# Authentication (optional - omit for no login required)
+# Environment="AUTH_USERS=admin:changeme"
 
 # Users whose .claude directory can be mounted
 Environment="CLAUDE_SOURCE_USERS=user1,user2"
