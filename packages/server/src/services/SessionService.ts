@@ -173,9 +173,10 @@ export class SessionService {
       if (project.claude?.mcpServers && project.claude.mcpServers.length > 0) {
         const enabledServers = project.claude.mcpServers.filter(s => s.enabled)
         if (enabledServers.length > 0) {
-          const mcpConfig: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = {}
+          const mcpConfig: Record<string, { type: string; command: string; args: string[]; env?: Record<string, string> }> = {}
           for (const server of enabledServers) {
             mcpConfig[server.name] = {
+              type: 'stdio',
               command: server.command,
               args: server.args,
               ...(server.env && Object.keys(server.env).length > 0 ? { env: server.env } : {}),
