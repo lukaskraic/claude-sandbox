@@ -8,16 +8,38 @@ Claude Sandbox provides a complete solution for running Claude Code (Anthropic's
 
 ### Key Features
 
+#### Container & Isolation
 - **Containerized Environments** - Each session runs in an isolated Linux container (Podman/Docker)
-- **Git Worktree Isolation** - Every session gets its own Git branch and worktree
-- **Custom Docker Images** - Auto-generated images with configurable runtimes and tools
-- **Service Containers** - Built-in support for PostgreSQL, MySQL, Redis, MongoDB
-- **Web Terminal** - Real-time terminal access via WebSocket (xterm.js + tmux)
+- **Git Worktree Isolation** - Every session gets its own Git branch and worktree, multiple users can work on the same project simultaneously
+- **Custom Docker Images** - Auto-generated images with configurable runtimes (Java, Node.js, Python, Go) and tools
+- **Service Containers** - Built-in support for PostgreSQL, MySQL, Redis, MongoDB with automatic networking
+
+#### Web Terminal
+- **Real-time Terminal** - WebSocket-based terminal (xterm.js + tmux) with persistent sessions
+- **Image Paste Support** - Paste images directly into Claude Code using **Ctrl+V** - images are uploaded and inserted as file paths
+- **Clipboard Integration** - Full clipboard support for text and images between browser and container
+- **Session Persistence** - Terminal sessions survive page refresh (tmux-backed)
+
+#### Claude Code Integration
+- **Local User Mapping** - Claude Code binary and settings are mounted from a local user's home directory (no installation in container)
+- **MCP Server Support** - Use Model Context Protocol servers (Playwright, etc.) configured in user's `~/.claude.json`
+- **Shared License** - Uses your existing Claude Code subscription/license
+
+#### Git Integration
+- **Per-Session Git Config** - Configure git user name and email per session for proper commit attribution
+- **GitHub Token Support** - Optional GitHub token for private repository access
+- **Built-in Git UI** - View status, diff, log, create commits, push/pull directly from web UI
+- **Branch Isolation** - Each session works on its own branch, easy to merge or discard changes
+
+#### Port Forwarding
+- **Dynamic Port Mapping** - Container ports are automatically mapped to available host ports
+- **Service Discovery** - Access databases and services via internal container network
+- **HTTP Proxy** - Access container web services through the sandbox proxy (no direct port exposure needed)
+
+#### Development Tools
+- **File Browser** - Navigate and view project files in the web UI
+- **Code Editor** - Edit files directly with syntax highlighting (CodeMirror 6)
 - **Multi-user Support** - Session-based authentication with user isolation
-- **Claude Code Integration** - Mounts `.claude` directory for persistent configuration
-- **MCP Server Support** - Configure Model Context Protocol servers (e.g., Playwright)
-- **Port Forwarding** - Access container services from host
-- **File Browser & Editor** - View and edit files directly in the web UI
 
 ## Architecture
 
