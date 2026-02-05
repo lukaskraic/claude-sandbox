@@ -21,6 +21,9 @@ RUN apt-get update && apt-get install -y \
 # Install Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 
+# Install Playwright with Chromium for MCP browser automation
+RUN npx playwright install --with-deps chromium
+
 # Create dev user with sudo access
 RUN useradd -m -s /bin/bash dev \
     && echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers

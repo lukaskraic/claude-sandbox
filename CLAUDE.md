@@ -138,6 +138,20 @@ Note: The service tries to set ACL automatically on session start, but may fail 
 - `licencieclaude13` - ACL added 2026-02-02
 - `licencieclaude21` - ACL added 2026-02-03
 
+## MCP Servers
+
+### Playwright MCP (browser automation)
+
+Playwright MCP must be installed manually in user's home directory:
+
+```bash
+claude mcp add --transport stdio --scope user playwright -- npx -y @playwright/mcp@latest --headless --browser chromium --no-sandbox
+```
+
+This adds the MCP server to `~/.claude.json` and makes it available in all sessions.
+
+**Note:** Chromium browser is pre-installed in the container image.
+
 ## System Dependencies
 
 The following packages must be installed on the server:
