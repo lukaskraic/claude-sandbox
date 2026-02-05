@@ -171,6 +171,48 @@ CLAUDE_SOURCE_USERS=user1,user2    # Users whose .claude can be mounted
 AUTH_USERS=user:password           # Authentication credentials
 ```
 
+### Claude Code Integration
+
+Claude Code is **not installed in the container**. Instead, the installation and settings are mapped from a local user on the host system. When creating a session, you select which user's Claude Code configuration to use.
+
+#### How it works
+
+When a session starts with a configured `claudeSourceUser`, the following directories are mounted into the container:
+
+| Host Path | Container Path | Purpose |
+|-----------|----------------|---------|
+| `/home/<user>/.claude` | `/home/<user>/.claude` | Claude Code settings, state, conversation history |
+| `/home/<user>/.claude.json` | `/home/<user>/.claude.json` | Claude Code config (MCP servers, preferences) |
+| `/home/<user>/.local` | `/home/<user>/.local` | Claude Code binary (`~/.local/bin/claude`) |
+| `/home/<user>/.gitconfig` | `/home/<user>/.gitconfig` | Git configuration (if session doesn't override) |
+
+**Important:** Paths are mounted at the **same absolute path** as on the host. This is required because Claude Code stores absolute paths in its configuration files.
+
+#### Container user mapping
+
+The container runs as the **same UID/GID** as the source user on the host. This ensures:
+- File permissions work correctly
+- Claude Code can read/write its configuration
+- Git commits use the correct user identity
+
+#### MCP Servers
+
+MCP servers (like Playwright) must be configured in the user's home directory, not per-project:
+
+```bash
+claude mcp add --transport stdio --scope user playwright -- npx -y @playwright/mcp@latest --headless --browser chromium --no-sandbox
+```
+
+This adds the MCP server to `~/.claude.json`, making it available in all sandbox sessions that mount that user's configuration.
+
+#### User setup requirements
+
+Before a user can be used as a Claude source:
+
+1. Add to `CLAUDE_SOURCE_USERS` environment variable
+2. Configure ACL permissions (see [Step 7: Configure User Access](#step-7-configure-user-access))
+3. Have Claude Code installed locally (`~/.local/bin/claude`)
+
 ### Project Configuration Example
 
 ```typescript
@@ -433,13 +475,29 @@ server {
 
 ### Step 7: Configure User Access
 
-For each user who wants to use their Claude Code configuration:
+Claude Code is **not installed in containers**. Instead, each user must have Claude Code installed locally, and the sandbox mounts their configuration into containers.
+
+#### Prerequisites for each user
+
+1. **Install Claude Code locally** (as the user):
+   ```bash
+   # Claude Code installs to ~/.local/bin/claude
+   curl -fsSL https://claude.ai/install.sh | sh
+   ```
+
+2. **Configure MCP servers** (optional, for browser automation etc.):
+   ```bash
+   # Example: Add Playwright MCP for browser automation
+   claude mcp add --transport stdio --scope user playwright -- npx -y @playwright/mcp@latest --headless --browser chromium --no-sandbox
+   ```
+
+#### Grant service access
 
 ```bash
 # Grant service access to user's home directory (for path traversal)
 setfacl -m u:claude-sandbox:rx /home/<username>
 
-# Grant access to .claude directory
+# Grant access to .claude directory (settings, state, conversations)
 setfacl -Rm u:claude-sandbox:rwX /home/<username>/.claude
 setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.claude
 
@@ -448,7 +506,19 @@ setfacl -Rm u:claude-sandbox:rwX /home/<username>/.local
 setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.local
 ```
 
-Add user to `CLAUDE_SOURCE_USERS` environment variable in the service file.
+#### Enable user in service
+
+Add username to `CLAUDE_SOURCE_USERS` environment variable in the service file:
+
+```bash
+Environment="CLAUDE_SOURCE_USERS=user1,user2,newuser"
+```
+
+Then reload the service:
+```bash
+systemctl daemon-reload
+systemctl restart claude-sandbox
+```
 
 ### Step 8: Verify Installation
 
