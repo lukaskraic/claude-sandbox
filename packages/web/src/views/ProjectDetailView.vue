@@ -516,8 +516,8 @@ const deletingSession = ref(false)
 const newSessionName = ref('')
 const newSessionBranch = ref('')
 const newSessionClaudeUser = ref<string | null>(null)
-const newSessionGitUserName = ref('lukas.kraic')
-const newSessionGitUserEmail = ref('lukas.kraic@alanata.sk')
+const newSessionGitUserName = ref('')
+const newSessionGitUserEmail = ref('')
 const newSessionGithubToken = ref('')
 const claudeSourceUsers = ref<string[]>([])
 const imageStatus = ref<ProjectImage | null>(null)
@@ -729,8 +729,8 @@ async function createSession() {
   newSessionName.value = ''
   newSessionBranch.value = ''
   newSessionClaudeUser.value = null
-  newSessionGitUserName.value = 'lukas.kraic'
-  newSessionGitUserEmail.value = 'lukas.kraic@alanata.sk'
+  newSessionGitUserName.value = ''
+  newSessionGitUserEmail.value = ''
   newSessionGithubToken.value = ''
   // Refetch to get fresh data
   await sessionStore.fetchSessions()

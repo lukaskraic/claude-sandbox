@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Sandbox Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; padding: 2rem; max-width: 640px; margin: 0 auto; }
+    h1 { margin-bottom: 0.5rem; }
+    .subtitle { color: #666; margin-bottom: 2rem; }
+    .card { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card h2 { margin-bottom: 1rem; font-size: 1.1rem; }
+    #status { padding: 0.75rem; border-radius: 4px; background: #e8f5e9; color: #2e7d32; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
+    #status.error { background: #fce4ec; color: #c62828; }
+    .form-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    input[type="text"] { flex: 1; padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem; }
+    button { padding: 0.5rem 1rem; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; font-size: 0.95rem; }
+    button:hover { background: #1565c0; }
+    button:disabled { background: #bbb; cursor: not-allowed; }
+    .messages { list-style: none; }
+    .messages li { padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    .messages li:last-child { border-bottom: none; }
+    .messages .time { color: #999; font-size: 0.8rem; margin-left: 0.5rem; }
+    .empty { color: #999; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>Claude Sandbox Demo</h1>
+  <p class="subtitle">Express + PostgreSQL</p>
+
+  <div class="card">
+    <h2>API Health</h2>
+    <div id="status">Checking...</div>
+  </div>
+
+  <div class="card">
+    <h2>Messages</h2>
+    <div class="form-row">
+      <input type="text" id="msgInput" placeholder="Type a message..." maxlength="500">
+      <button id="sendBtn">Send</button>
+    </div>
+    <ul class="messages" id="msgList">
+      <li class="empty">Loading...</li>
+    </ul>
+  </div>
+
+  <script>
+    async function checkHealth() {
+      var el = document.getElementById('status');
+      try {
+        var res = await fetch('/api/hello');
+        var data = await res.json();
+        el.textContent = JSON.stringify(data, null, 2);
+        el.className = '';
+      } catch (err) {
+        el.textContent = 'Error: ' + err.message;
+        el.className = 'error';
+      }
+    }
+
+    function renderMessages(msgs) {
+      var list = document.getElementById('msgList');
+      while (list.firstChild) list.removeChild(list.firstChild);
+
+      if (msgs.length === 0) {
+        var li = document.createElement('li');
+        li.className = 'empty';
+        li.textContent = 'No messages yet. Send one!';
+        list.appendChild(li);
+        return;
+      }
+
+      msgs.forEach(function(m) {
+        var li = document.createElement('li');
+        var textNode = document.createTextNode(m.text + ' ');
+        var timeSpan = document.createElement('span');
+        timeSpan.className = 'time';
+        timeSpan.textContent = new Date(m.created_at).toLocaleString();
+        li.appendChild(textNode);
+        li.appendChild(timeSpan);
+        list.appendChild(li);
+      });
+    }
+
+    async function loadMessages() {
+      var list = document.getElementById('msgList');
+      try {
+        var res = await fetch('/api/messages');
+        var msgs = await res.json();
+        renderMessages(msgs);
+      } catch (err) {
+        while (list.firstChild) list.removeChild(list.firstChild);
+        var li = document.createElement('li');
+        li.className = 'empty';
+        li.textContent = 'Could not load messages: ' + err.message;
+        list.appendChild(li);
+      }
+    }
+
+    async function sendMessage() {
+      var input = document.getElementById('msgInput');
+      var btn = document.getElementById('sendBtn');
+      var text = input.value.trim();
+      if (!text) return;
+      btn.disabled = true;
+      try {
+        await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text }),
+        });
+        input.value = '';
+        await loadMessages();
+      } catch (err) {
+        alert('Failed to send: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', sendMessage);
+    document.getElementById('msgInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    checkHealth();
+    loadMessages();
+  </script>
+</body>
+</html>

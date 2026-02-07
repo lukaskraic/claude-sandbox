@@ -299,10 +299,11 @@ export class SessionService {
               await fs.writeFile(sessionClaudeJson, '{}', { mode: 0o600 })
             }
 
-            // Set ownership to container user
+            // Grant container user full access via ACL (chown fails when service user != file owner)
             const userIds = await getUserIds(claudeSourceUser!)
             if (userIds) {
-              await execAsync(`chown -R ${userIds.uid}:${userIds.gid} ${sessionClaudePath}`)
+              await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${sessionClaudePath}`)
+              await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${sessionClaudePath}`)
             }
           }
 
@@ -371,6 +372,8 @@ export class SessionService {
 
       // Build environment with HOME and PATH set to match the claude source user
       const containerEnv = {
+        TERM: 'xterm-256color',
+        LANG: 'C.UTF-8',
         ...project.environment.env,
         ...serviceResult.env,
         ...(claudeUserHome ? {

@@ -2,6 +2,10 @@
 
 Web-based platform for creating isolated, containerized development environments that enable Claude Code to work in secure, sandboxed project spaces.
 
+![Project Dashboard](docs/images/project-dashboard.png)
+
+![Session Terminal](docs/images/session-terminal.png)
+
 ## Overview
 
 Claude Sandbox provides a complete solution for running Claude Code (Anthropic's AI-powered CLI) in isolated containers. Each session gets its own container with a dedicated Git worktree, allowing multiple users to work on the same project simultaneously without conflicts.
@@ -127,7 +131,10 @@ claude-sandbox/
 │   │       └── router/         # Route definitions
 │   └── shared/                 # Shared TypeScript types
 ├── scripts/
-│   └── deploy.sh               # Deployment script
+│   ├── install.sh              # Universal installer (Podman/Docker)
+│   ├── setup-demo.sh           # Demo project + session creator
+│   ├── deploy.sh               # Deployment script (updates existing install)
+│   └── demo/                   # Demo Hello World app
 └── docs/                       # Documentation
 ```
 
@@ -363,6 +370,31 @@ Cached Docker images indexed by configuration hash for fast session startup.
 
 ## Installation Guide
 
+### Quick Install (Automated)
+
+Build the project on your dev machine, transfer to the server, and run the installer:
+
+```bash
+# On dev machine: build
+pnpm install && pnpm build
+
+# Transfer to server
+scp -r . user@server:~/claude-sandbox/
+
+# On server: install (choose podman or docker)
+ssh user@server
+cd ~/claude-sandbox
+bash scripts/install.sh --runtime podman   # AlmaLinux/RHEL/Fedora
+bash scripts/install.sh --runtime docker   # Ubuntu/Debian
+
+# Optional: create demo project + session
+bash scripts/setup-demo.sh
+```
+
+The installer handles all steps below automatically: system packages, Node.js, container runtime, Claude Code CLI, service user, systemd service, and ACL permissions.
+
+### Manual Installation
+
 ### Prerequisites
 
 #### System Requirements
@@ -585,6 +617,9 @@ setfacl -m u:claude-sandbox:rx /home/<username>
 # Grant access to .claude directory (settings, state, conversations)
 setfacl -Rm u:claude-sandbox:rwX /home/<username>/.claude
 setfacl -Rdm u:claude-sandbox:rwX /home/<username>/.claude
+
+# Grant read access to .claude.json (mode 600 by default, needed for session state copy)
+setfacl -m u:claude-sandbox:r /home/<username>/.claude.json
 
 # Grant access to .local directory (Claude Code binary)
 setfacl -Rm u:claude-sandbox:rwX /home/<username>/.local

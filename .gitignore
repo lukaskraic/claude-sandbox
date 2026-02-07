@@ -6,6 +6,7 @@ dist/
 .DS_Store
 coverage/
 .turbo/
+CLAUDE.md
 
 # Generated Vue/TS files
 *.vue.js

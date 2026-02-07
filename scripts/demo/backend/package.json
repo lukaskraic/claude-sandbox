@@ -1,0 +1,13 @@
+{
+  "name": "demo-hello-world",
+  "version": "1.0.0",
+  "description": "Demo app for claude-sandbox: Express + PostgreSQL",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "pg": "^8.13.0"
+  }
+}

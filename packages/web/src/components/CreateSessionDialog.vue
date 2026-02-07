@@ -72,8 +72,8 @@ const sessionName = ref('')
 const branch = ref('')
 const claudeSourceUser = ref<string | null>(null)
 const claudeSourceUsers = ref<string[]>([])
-const gitUserName = ref('lukas.kraic')
-const gitUserEmail = ref('lukas.kraic@alanata.sk')
+const gitUserName = ref('')
+const gitUserEmail = ref('')
 const loading = ref(false)
 
 onMounted(async () => {
@@ -91,8 +91,8 @@ function close() {
   model.value = false
   sessionName.value = ''
   branch.value = ''
-  gitUserName.value = 'lukas.kraic'
-  gitUserEmail.value = 'lukas.kraic@alanata.sk'
+  gitUserName.value = ''
+  gitUserEmail.value = ''
 }
 
 async function submit() {
