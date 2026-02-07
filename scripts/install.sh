@@ -27,6 +27,13 @@ done
 [[ -z "$RUNTIME" ]] && err "Missing --runtime flag. Usage: install.sh --runtime podman|docker"
 [[ "$RUNTIME" != "podman" && "$RUNTIME" != "docker" ]] && err "Runtime must be 'podman' or 'docker'"
 
+# --- Pre-flight checks ---
+for cmd in sudo curl tar; do
+  command -v "$cmd" &>/dev/null || err "Required command '$cmd' not found. Install it first."
+done
+
+sudo -n true 2>/dev/null || err "sudo requires a password or is not configured. Run with a user that has passwordless sudo or enter password first."
+
 # --- Detect OS ---
 source /etc/os-release 2>/dev/null || err "Cannot read /etc/os-release"
 OS_ID="$ID"
@@ -39,6 +46,14 @@ INSTALL_USER="$(whoami)"
 APP_DIR="/srv/claude-sandbox/app"
 DATA_DIR="/srv/claude-sandbox/data"
 WORKTREE_DIR="/srv/claude-sandbox/worktrees"
+
+# Verify source has been built
+if [[ ! -d "$SRC_DIR/packages/server/dist" ]]; then
+  err "Server not built. Run 'pnpm build' in $SRC_DIR first."
+fi
+if [[ ! -d "$SRC_DIR/packages/web/dist" ]]; then
+  err "Frontend not built. Run 'pnpm build' in $SRC_DIR first."
+fi
 
 # --- Step 1: Base packages ---
 log "Installing base packages..."
@@ -144,14 +159,6 @@ sudo mkdir -p "$DATA_DIR" "$WORKTREE_DIR"
 
 # --- Step 7: Deploy app ---
 log "Deploying application from $SRC_DIR..."
-
-if [[ ! -d "$SRC_DIR/packages/server/dist" ]]; then
-  err "Server not built. Run 'pnpm build' first in $SRC_DIR"
-fi
-if [[ ! -d "$SRC_DIR/packages/web/dist" ]]; then
-  err "Frontend not built. Run 'pnpm build' first in $SRC_DIR"
-fi
-
 sudo rm -rf "$APP_DIR/packages/server/dist" "$APP_DIR/packages/web/dist"
 sudo cp -r "$SRC_DIR/packages/server/dist" "$APP_DIR/packages/server/"
 sudo cp -r "$SRC_DIR/packages/web/dist" "$APP_DIR/packages/web/"
@@ -187,10 +194,8 @@ sudo tee "$APP_DIR/packages/server/package.json" > /dev/null << 'PKGJSON'
 PKGJSON
 
 log "Installing production dependencies..."
-cd "$APP_DIR/packages/server"
-sudo rm -rf node_modules package-lock.json
-sudo /usr/bin/npm install --omit=dev --no-audit --no-fund 2>&1 || true
-cd "$SRC_DIR"
+sudo rm -rf "$APP_DIR/packages/server/node_modules" "$APP_DIR/packages/server/package-lock.json"
+sudo bash -c "cd '$APP_DIR/packages/server' && /usr/bin/npm install --omit=dev --no-audit --no-fund" 2>&1 || true
 
 sudo chown -R claude-sandbox:claude-sandbox /srv/claude-sandbox
 
@@ -206,6 +211,13 @@ if [[ -d "$HOME_DIR/.claude" ]]; then
   log "ACL set on $HOME_DIR/.claude"
 else
   warn "$HOME_DIR/.claude not found - skipping ACL (create it before running sessions)"
+fi
+
+# Grant service user read access to .claude.json (Claude Code state file in home dir)
+# This file is mode 600 by default, service needs to read it to copy into sessions
+if [[ -f "$HOME_DIR/.claude.json" ]]; then
+  sudo setfacl -m u:claude-sandbox:r "$HOME_DIR/.claude.json"
+  log "ACL set on $HOME_DIR/.claude.json"
 fi
 
 # Grant service user access to .local (Claude Code binary)
@@ -243,8 +255,8 @@ $(if [[ "$RUNTIME" == "podman" ]]; then echo "After=podman.socket"; fi)
 Type=simple
 User=claude-sandbox
 Group=claude-sandbox
-WorkingDirectory=$APP_DIR/packages/server
-ExecStart=/usr/bin/node dist/index.js
+WorkingDirectory=$APP_DIR
+ExecStart=/usr/bin/node packages/server/dist/index.js
 Restart=on-failure
 RestartSec=5
 

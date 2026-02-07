@@ -111,7 +111,7 @@ export declare const useSessionStore: import("pinia").StoreDefinition<"session",
     stopSession: (id: string) => Promise<any>;
     removeSession: (id: string) => Promise<void>;
     updateSession: (session: Session) => void;
-}, "loading" | "error" | "sessions">, Pick<{
+}, "error" | "loading" | "sessions">, Pick<{
     sessions: import("vue").Ref<{
         id: string;
         projectId: string;

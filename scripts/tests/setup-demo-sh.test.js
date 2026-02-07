@@ -71,8 +71,9 @@ describe('setup-demo.sh - script structure', () => {
     assert.ok(content.includes('localhost:3020'), 'should target port 3020');
   });
 
-  it('uses setup script to start the demo app', () => {
+  it('uses setup script to install deps and start the demo app', () => {
     assert.ok(content.includes('npm install'), 'setup should install deps');
-    assert.ok(content.includes('node backend/server.js'), 'setup should start the server');
+    assert.ok(content.includes('node server.js'), 'setup should start the server');
+    assert.ok(content.includes('setsid'), 'setup should daemonize server with setsid');
   });
 });
