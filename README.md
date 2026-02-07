@@ -213,18 +213,52 @@ AUTH_USERS=admin:pass1,developer:pass2,guest:pass3
 
 Claude Code is **not installed in the container**. Instead, the installation and settings are mapped from a local user on the host system. When creating a session, you select which user's Claude Code configuration to use.
 
+#### License Sharing
+
+The sandbox uses the **Claude Code subscription/license** from the source user account. This means:
+
+- All sessions using the same `claudeSourceUser` share that user's Claude subscription
+- The source user must have a valid Claude Code subscription (Max plan recommended for heavy usage)
+- API usage and billing goes to the source user's account
+
+**Recommendation:** Create a dedicated shared account for the sandbox (e.g., `claude-shared`) with:
+- Active Claude Code subscription
+- All required plugins installed
+- MCP servers configured
+- Proper `.gitconfig` settings
+
+#### Session Isolation
+
+Each sandbox session gets its **own isolated copy** of the Claude Code state:
+
+| Component | Isolation | Notes |
+|-----------|-----------|-------|
+| Conversation history | Per-session | Each session has independent Claude conversations |
+| Session state | Per-session | No mixing between concurrent sessions |
+| Settings | Copied at start | Changes don't affect other sessions |
+| License/subscription | Shared | Uses source user's subscription |
+| Binary (`~/.local`) | Shared read-only | Claude Code executable |
+
+This prevents Claude Code sessions from "mixing" when multiple sandbox sessions run simultaneously.
+
 #### How it works
 
-When a session starts with a configured `claudeSourceUser`, the following directories are mounted into the container:
+When a session starts with a configured `claudeSourceUser`:
 
-| Host Path | Container Path | Purpose |
-|-----------|----------------|---------|
-| `/home/<user>/.claude` | `/home/<user>/.claude` | Claude Code settings, state, conversation history |
-| `/home/<user>/.claude.json` | `/home/<user>/.claude.json` | Claude Code config (MCP servers, preferences) |
-| `/home/<user>/.local` | `/home/<user>/.local` | Claude Code binary (`~/.local/bin/claude`) |
-| `/home/<user>/.gitconfig` | `/home/<user>/.gitconfig` | Git configuration (if session doesn't override) |
+1. **First start:** Copies source user's `.claude/` to session-specific directory
+2. **Subsequent starts:** Reuses existing session state
+3. **State location:** `DATA_DIR/claude-state/{session-id}/.claude`
 
-**Important:** Paths are mounted at the **same absolute path** as on the host. This is required because Claude Code stores absolute paths in its configuration files.
+Mounted directories:
+
+| Source | Container Path | Purpose |
+|--------|----------------|---------|
+| `DATA_DIR/claude-state/{session}/.claude` | `/home/<user>/.claude` | Session-specific Claude state |
+| `DATA_DIR/claude-state/{session}/.claude.json` | `/home/<user>/.claude.json` | Session-specific config |
+| `/home/<user>/.local` | `/home/<user>/.local` | Claude Code binary (shared) |
+| `/home/<user>/.gitconfig` | `/home/<user>/.gitconfig` | Git config (if session doesn't override) |
+
+**Important:** Container paths match the source user's paths because Claude Code stores absolute paths in configuration.
 
 #### Container user mapping
 
@@ -233,15 +267,26 @@ The container runs as the **same UID/GID** as the source user on the host. This 
 - Claude Code can read/write its configuration
 - Git commits use the correct user identity
 
-#### MCP Servers
+#### Plugins and MCP Servers
 
-MCP servers (like Playwright) must be configured in the user's home directory, not per-project:
+**Install all plugins and MCP servers on the shared source user account.** These are copied to each session at first start.
+
+Recommended setup on the source user:
 
 ```bash
+# Login as the source user
+su - claude-shared
+
+# Install plugins
+claude plugins add frontend-design@claude-plugins-official
+claude plugins add security-guidance@claude-code-plugins
+claude plugins add context7@claude-plugins-official
+
+# Add MCP servers (user scope = stored in ~/.claude.json)
 claude mcp add --transport stdio --scope user playwright -- npx -y @playwright/mcp@latest --headless --browser chromium --no-sandbox
 ```
 
-This adds the MCP server to `~/.claude.json`, making it available in all sandbox sessions that mount that user's configuration.
+Plugins and MCP servers configured with `--scope user` are stored in `~/.claude.json` and automatically available in all sandbox sessions.
 
 #### User setup requirements
 
@@ -250,6 +295,8 @@ Before a user can be used as a Claude source:
 1. Add to `CLAUDE_SOURCE_USERS` environment variable
 2. Configure ACL permissions (see [Step 7: Configure User Access](#step-7-configure-user-access))
 3. Have Claude Code installed locally (`~/.local/bin/claude`)
+4. Have active Claude Code subscription
+5. Install all required plugins and MCP servers
 
 ### Project Configuration Example
 

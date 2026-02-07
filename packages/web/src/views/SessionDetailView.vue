@@ -5,39 +5,8 @@
         <v-btn icon="mdi-arrow-left" variant="text" :to="`/projects/${session.projectId}`" size="small" />
       </v-col>
       <v-col cols="auto" class="d-flex align-center">
-        <v-select
-          :model-value="session.id"
-          :items="projectSessions"
-          item-title="name"
-          item-value="id"
-          variant="outlined"
-          density="compact"
-          hide-details
-          class="session-switcher"
-          @update:model-value="switchSession"
-        >
-          <template #selection="{ item }">
-            <div class="d-flex align-center">
-              <span class="text-h6">{{ item.title }}</span>
-              <v-chip :color="statusColor" size="small" class="ml-2">{{ session.status }}</v-chip>
-            </div>
-          </template>
-          <template #item="{ props, item }">
-            <v-list-item
-              v-bind="props"
-              :title="item.title"
-            >
-              <template #append>
-                <v-chip :color="getStatusColor(item.raw.status)" size="x-small">
-                  {{ item.raw.status }}
-                </v-chip>
-              </template>
-            </v-list-item>
-          </template>
-          <template #prepend-inner>
-            <v-icon size="small" class="mr-1">mdi-swap-horizontal</v-icon>
-          </template>
-        </v-select>
+        <span class="text-h6">{{ session.name }}</span>
+        <v-chip :color="statusColor" size="small" class="ml-2">{{ session.status }}</v-chip>
       </v-col>
       <v-col cols="auto" v-if="gitStatus" class="d-flex align-center">
         <v-icon size="small" class="mr-1">mdi-source-branch</v-icon>
@@ -603,16 +572,6 @@ const terminalRef = ref<InstanceType<typeof TerminalView> | null>(null)
 const session = computed(() => sessionStore.sessionById(route.params.id as string))
 const project = computed(() => session.value ? projectStore.projectById(session.value.projectId) : null)
 
-const projectSessions = computed(() => {
-  if (!session.value) return []
-  return sessionStore.sessionsByProject(session.value.projectId)
-    .sort((a, b) => {
-      if (a.status === 'running' && b.status !== 'running') return -1
-      if (a.status !== 'running' && b.status === 'running') return 1
-      return a.name.localeCompare(b.name)
-    })
-})
-
 // Get available ports with URLs for clicking (using proxy endpoint)
 const availablePorts = computed(() => {
   if (!session.value?.container?.ports) return []
@@ -799,10 +758,6 @@ function getStatusColor(status: SessionStatus): string {
     error: 'error',
   }
   return colors[status]
-}
-
-function switchSession(sessionId: string) {
-  router.push(`/sessions/${sessionId}`)
 }
 
 function updateHeight() {
@@ -1119,25 +1074,6 @@ async function restart() {
 </script>
 
 <style scoped>
-.session-switcher {
-  max-width: 350px;
-  min-width: 250px;
-}
-
-.session-switcher :deep(.v-field) {
-  background: transparent;
-  border: none;
-}
-
-.session-switcher :deep(.v-field__outline) {
-  display: none;
-}
-
-.session-switcher :deep(.v-field__input) {
-  padding: 0;
-  min-height: auto;
-}
-
 .file-toolbar {
   background: #252526;
   border-bottom: 1px solid #333;

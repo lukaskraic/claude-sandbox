@@ -265,7 +265,7 @@ export class SessionService {
       }
 
       // Add .claude directory mount if user specified
-      // Must use same path as on host because Claude Code stores absolute paths in config
+      // Each session gets its own copy to prevent Claude Code session mixing
       const claudeSourceUser = session.claudeSourceUser
       const claudeSourcePath = claudeSourceUser
         ? `/home/${claudeSourceUser}/.claude`
@@ -275,34 +275,51 @@ export class SessionService {
       if (claudeSourcePath && claudeUserHome) {
         try {
           await fs.access(claudeSourcePath)
-          mounts.push({
-            source: claudeSourcePath,
-            target: claudeSourcePath,  // Same path in container - Claude has hardcoded absolute paths
-            readonly: false,  // Claude Code needs write access for settings.local.json, state, etc.
-          })
-          logger.info('Mounting .claude directory', { sessionId: id, source: claudeSourcePath, target: claudeSourcePath })
 
-          // Also mount .claude.json (Claude Code writes config here too)
-          // Create the file on host if it doesn't exist, with proper ownership
-          const claudeJsonPath = `${claudeUserHome}/.claude.json`
+          // Create per-session .claude directory to isolate Claude Code state
+          const sessionClaudePath = path.join(this.config.dataDir, 'claude-state', session.id)
+          const sessionClaudeDir = path.join(sessionClaudePath, '.claude')
+          const sessionClaudeJson = path.join(sessionClaudePath, '.claude.json')
+
           try {
-            await fs.access(claudeJsonPath)
+            await fs.access(sessionClaudeDir)
+            logger.info('Using existing session .claude directory', { sessionId: id, path: sessionClaudeDir })
           } catch {
-            // File doesn't exist - create empty JSON file with proper ownership
-            logger.info('Creating .claude.json on host', { sessionId: id, path: claudeJsonPath })
-            await fs.writeFile(claudeJsonPath, '{}', { mode: 0o600 })
-            // Change ownership to the claude source user
+            // Copy source user's .claude to session-specific directory
+            logger.info('Creating session .claude directory from source', { sessionId: id, source: claudeSourcePath, target: sessionClaudeDir })
+            await fs.mkdir(sessionClaudePath, { recursive: true })
+            await execAsync(`cp -a ${claudeSourcePath} ${sessionClaudeDir}`)
+
+            // Copy .claude.json if exists
+            const sourceClaudeJson = `${claudeUserHome}/.claude.json`
+            try {
+              await fs.access(sourceClaudeJson)
+              await execAsync(`cp ${sourceClaudeJson} ${sessionClaudeJson}`)
+            } catch {
+              await fs.writeFile(sessionClaudeJson, '{}', { mode: 0o600 })
+            }
+
+            // Set ownership to container user
             const userIds = await getUserIds(claudeSourceUser!)
             if (userIds) {
-              await execAsync(`chown ${userIds.uid}:${userIds.gid} ${claudeJsonPath}`)
+              await execAsync(`chown -R ${userIds.uid}:${userIds.gid} ${sessionClaudePath}`)
             }
           }
+
+          // Mount session-specific .claude at the expected path in container
           mounts.push({
-            source: claudeJsonPath,
-            target: claudeJsonPath,
+            source: sessionClaudeDir,
+            target: claudeSourcePath,  // Same target path - Claude has hardcoded absolute paths
             readonly: false,
           })
-          logger.info('Mounting .claude.json', { sessionId: id, path: claudeJsonPath })
+          logger.info('Mounting session .claude directory', { sessionId: id, source: sessionClaudeDir, target: claudeSourcePath })
+
+          mounts.push({
+            source: sessionClaudeJson,
+            target: `${claudeUserHome}/.claude.json`,
+            readonly: false,
+          })
+          logger.info('Mounting session .claude.json', { sessionId: id, path: sessionClaudeJson })
 
           // Mount .local directory (contains Claude Code binary in bin/)
           const localPath = `${claudeUserHome}/.local`
