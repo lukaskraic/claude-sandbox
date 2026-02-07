@@ -283,7 +283,7 @@ claude plugins add security-guidance@claude-code-plugins
 claude plugins add context7@claude-plugins-official
 
 # Add MCP servers (user scope = stored in ~/.claude.json)
-claude mcp add --transport stdio --scope user playwright -- npx -y @playwright/mcp@latest --headless --browser chromium --no-sandbox
+claude mcp add --transport stdio --scope user playwright -- npx -y @anthropic-ai/playwright-mcp
 ```
 
 Plugins and MCP servers configured with `--scope user` are stored in `~/.claude.json` and automatically available in all sandbox sessions.
@@ -331,7 +331,7 @@ Before a user can be used as a Claude source:
   claude: {
     claudeMd: "# Project Instructions\n...",
     mcpServers: [
-      { name: "playwright", command: "npx", args: ["-y", "@playwright/mcp@latest"], enabled: true }
+      { name: "playwright", command: "npx", args: ["-y", "@anthropic-ai/playwright-mcp"], enabled: true }
     ]
   }
 }
@@ -573,7 +573,7 @@ Claude Code is **not installed in containers**. Instead, each user must have Cla
 2. **Configure MCP servers** (optional, for browser automation etc.):
    ```bash
    # Example: Add Playwright MCP for browser automation
-   claude mcp add --transport stdio --scope user playwright -- npx -y @playwright/mcp@latest --headless --browser chromium --no-sandbox
+   claude mcp add --transport stdio --scope user playwright -- npx -y @anthropic-ai/playwright-mcp
    ```
 
 #### Grant service access
