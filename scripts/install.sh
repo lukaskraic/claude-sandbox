@@ -242,7 +242,20 @@ elif [[ "$RUNTIME" == "podman" ]]; then
   fi
 fi
 
-# --- Step 10: systemd service ---
+# --- Step 10: sudoers for service user ---
+log "Configuring sudoers for service user..."
+sudo tee /etc/sudoers.d/claude-sandbox > /dev/null << 'SUDOERS'
+# Claude Sandbox service permissions
+# Allows service to copy user files for session isolation and manage containers
+claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/cp
+claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/setfacl
+claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/podman *
+claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/docker *
+SUDOERS
+sudo chmod 440 /etc/sudoers.d/claude-sandbox
+log "Sudoers configured"
+
+# --- Step 11: systemd service ---
 log "Creating systemd service..."
 sudo tee /etc/systemd/system/claude-sandbox.service > /dev/null << EOF
 [Unit]
