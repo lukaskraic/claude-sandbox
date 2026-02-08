@@ -286,24 +286,25 @@ export class SessionService {
             logger.info('Using existing session .claude directory', { sessionId: id, path: sessionClaudeDir })
           } catch {
             // Copy source user's .claude to session-specific directory
+            // Use sudo because service user may not have read access to source user's files
             logger.info('Creating session .claude directory from source', { sessionId: id, source: claudeSourcePath, target: sessionClaudeDir })
             await fs.mkdir(sessionClaudePath, { recursive: true })
-            await execAsync(`cp -a ${claudeSourcePath} ${sessionClaudeDir}`)
+            await execAsync(`sudo cp -a ${claudeSourcePath} ${sessionClaudeDir}`)
 
             // Copy .claude.json if exists
             const sourceClaudeJson = `${claudeUserHome}/.claude.json`
             try {
               await fs.access(sourceClaudeJson)
-              await execAsync(`cp ${sourceClaudeJson} ${sessionClaudeJson}`)
+              await execAsync(`sudo cp ${sourceClaudeJson} ${sessionClaudeJson}`)
             } catch {
               await fs.writeFile(sessionClaudeJson, '{}', { mode: 0o600 })
             }
 
-            // Grant container user full access via ACL (chown fails when service user != file owner)
+            // Grant container user full access via ACL
             const userIds = await getUserIds(claudeSourceUser!)
             if (userIds) {
-              await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${sessionClaudePath}`)
-              await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${sessionClaudePath}`)
+              await execAsync(`sudo setfacl -Rm u:${userIds.uid}:rwX ${sessionClaudePath}`)
+              await execAsync(`sudo setfacl -Rdm u:${userIds.uid}:rwX ${sessionClaudePath}`)
             }
           }
 
