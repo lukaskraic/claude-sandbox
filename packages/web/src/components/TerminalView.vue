@@ -158,7 +158,13 @@ watch(() => props.sessionId, () => {
   }
 })
 
+// Flag to prevent double paste (our handler + xterm native)
+let isPasting = false
+
 async function handlePaste() {
+  if (isPasting) return
+  isPasting = true
+
   try {
     // Try to read clipboard items (supports images)
     const clipboardItems = await navigator.clipboard.read()
@@ -192,6 +198,9 @@ async function handlePaste() {
     } catch {
       // Clipboard access denied
     }
+  } finally {
+    // Reset flag after a short delay to allow event processing to complete
+    setTimeout(() => { isPasting = false }, 50)
   }
 }
 
@@ -308,6 +317,8 @@ function connect() {
       dataHandler.dispose()
     }
     dataHandler = terminal!.onData((data) => {
+      // Skip if we're handling paste manually (prevents double paste)
+      if (isPasting) return
       sendInput(data)
     })
   }
