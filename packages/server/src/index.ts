@@ -17,6 +17,7 @@ import { GitService } from './services/GitService.js'
 import { ContainerService } from './services/ContainerService.js'
 import { ImageBuilderService } from './services/ImageBuilderService.js'
 import { AuthService } from './services/AuthService.js'
+import { WorktreeService } from './services/WorktreeService.js'
 import { appRouter } from './trpc/router.js'
 import { createContextFactory } from './trpc/context.js'
 import { createTerminalHandler } from './ws/terminalHandler.js'
@@ -74,8 +75,9 @@ async function main() {
   await sessionService.syncSessionsWithContainers()
 
   const authService = new AuthService(db, config)
+  const worktreeService = new WorktreeService(gitService, sessionRepo, projectRepo, config)
 
-  const services = { projectService, sessionService, gitService, containerService, imageBuilderService, authService }
+  const services = { projectService, sessionService, gitService, containerService, imageBuilderService, authService, worktreeService }
   const createContext = createContextFactory(services, config)
 
   const app = express()

@@ -34,6 +34,7 @@ export interface Session {
 export interface CreateSessionInput {
   name: string
   branch?: string
+  worktreePath?: string
   claudeSourceUser?: string
   gitUserName?: string
   gitUserEmail?: string

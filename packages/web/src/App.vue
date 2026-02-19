@@ -18,6 +18,12 @@
           to="/projects"
           @click="drawer = false"
         />
+        <v-list-item
+          prepend-icon="mdi-source-branch"
+          title="Worktrees"
+          to="/worktrees"
+          @click="drawer = false"
+        />
       </v-list>
     </v-navigation-drawer>
 

@@ -153,14 +153,36 @@ export class SessionService {
         logger.warn('Failed to fetch from remote (may need credentials)', { repoPath, error: err })
       }
 
-      // Use session's specified branch, or create unique session branch based on project's default
-      const userBranch = session.worktree?.branch
       const baseBranch = project.git.defaultBranch || 'main'
-      const branch = userBranch || `session/${session.id.slice(0, 8)}`
-      const worktreePath = path.join(this.config.worktreeBase, project.name, session.id)
+      let worktreePath: string
 
-      const commit = await this.gitService.createWorktree(repoPath, worktreePath, branch, baseBranch)
-      this.sessionRepo.updateWorktree(id, worktreePath, branch, baseBranch, commit)
+      if (session.worktree?.path) {
+        // Reuse existing worktree (attached from another session or orphan)
+        worktreePath = session.worktree.path
+        try {
+          await fs.access(worktreePath)
+          await this.gitService.verifyAndRepairWorktree(repoPath, worktreePath)
+          const worktreeGit = (await import('simple-git')).simpleGit(worktreePath)
+          const status = await worktreeGit.status()
+          const log = await worktreeGit.log({ maxCount: 1 })
+          this.sessionRepo.updateWorktree(id, worktreePath, status.current || 'HEAD', baseBranch, log.latest?.hash || '')
+          logger.info('Reusing existing worktree', { sessionId: id, worktreePath })
+        } catch (err) {
+          logger.warn('Existing worktree not accessible, creating new one', { sessionId: id, worktreePath, error: err })
+          // Fall through to create new worktree
+          const branch = session.worktree?.branch || `session/${session.id.slice(0, 8)}`
+          worktreePath = path.join(this.config.worktreeBase, project.name, session.id)
+          const commit = await this.gitService.createWorktree(repoPath, worktreePath, branch, baseBranch)
+          this.sessionRepo.updateWorktree(id, worktreePath, branch, baseBranch, commit)
+        }
+      } else {
+        // Create new worktree
+        const userBranch = session.worktree?.branch
+        const branch = userBranch || `session/${session.id.slice(0, 8)}`
+        worktreePath = path.join(this.config.worktreeBase, project.name, session.id)
+        const commit = await this.gitService.createWorktree(repoPath, worktreePath, branch, baseBranch)
+        this.sessionRepo.updateWorktree(id, worktreePath, branch, baseBranch, commit)
+      }
 
       // Note: setup script is run later via bash -c, not written to file
 
@@ -639,6 +661,15 @@ export class SessionService {
           logger.warn('Failed to remove worktree', { path: session.worktree.path, error })
         }
       }
+    }
+
+    // Clean up per-session claude-state directory
+    const claudeStatePath = path.join(this.config.dataDir, 'claude-state', id)
+    try {
+      await fs.rm(claudeStatePath, { recursive: true, force: true })
+      logger.info('Removed claude-state', { path: claudeStatePath })
+    } catch (error) {
+      logger.warn('Failed to remove claude-state', { path: claudeStatePath, error })
     }
 
     this.sessionRepo.delete(id)

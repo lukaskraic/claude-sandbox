@@ -4,7 +4,36 @@ import path from 'path'
 import { logger } from '../logger.js'
 import type { GitStatus, GitCommit } from '@claude-sandbox/shared'
 
+export interface RawWorktree {
+  path: string
+  head: string
+  branch: string
+  isBare: boolean
+}
+
 export class GitService {
+  async listWorktrees(repoPath: string): Promise<RawWorktree[]> {
+    const git = simpleGit(repoPath)
+    const output = await git.raw(['worktree', 'list', '--porcelain'])
+    const worktrees: RawWorktree[] = []
+
+    for (const block of output.trim().split('\n\n')) {
+      const lines = block.trim().split('\n')
+      const wt: Partial<RawWorktree> = { isBare: false }
+      for (const line of lines) {
+        if (line.startsWith('worktree ')) wt.path = line.slice(9)
+        else if (line.startsWith('HEAD ')) wt.head = line.slice(5)
+        else if (line.startsWith('branch ')) wt.branch = line.slice(7).replace('refs/heads/', '')
+        else if (line === 'bare') wt.isBare = true
+        else if (line === 'detached') wt.branch = 'HEAD (detached)'
+      }
+      if (wt.path && wt.head) {
+        worktrees.push(wt as RawWorktree)
+      }
+    }
+    return worktrees
+  }
+
   async cloneIfNeeded(remote: string, localPath: string, defaultBranch: string): Promise<void> {
     try {
       await fs.access(localPath)

@@ -53,9 +53,9 @@ export class SessionRepository {
     const now = new Date().toISOString()
 
     this.db.prepare(`
-      INSERT INTO sessions (id, project_id, name, status, worktree_branch, claude_source_user, git_user_name, git_user_email, github_token, created_at, updated_at, created_by)
-      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, projectId, input.name, input.branch || null, input.claudeSourceUser || null, input.gitUserName || null, input.gitUserEmail || null, input.githubToken || null, now, now, createdBy || null)
+      INSERT INTO sessions (id, project_id, name, status, worktree_path, worktree_branch, claude_source_user, git_user_name, git_user_email, github_token, created_at, updated_at, created_by)
+      VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, projectId, input.name, input.worktreePath || null, input.branch || null, input.claudeSourceUser || null, input.gitUserName || null, input.gitUserEmail || null, input.githubToken || null, now, now, createdBy || null)
 
     return this.findById(id)!
   }
@@ -102,6 +102,14 @@ export class SessionRepository {
     this.db.prepare(`
       UPDATE sessions SET container_id = ?, updated_at = ? WHERE id = ?
     `).run(containerId, now, id)
+    return this.findById(id)
+  }
+
+  clearWorktree(id: string): Session | null {
+    const now = new Date().toISOString()
+    this.db.prepare(`
+      UPDATE sessions SET worktree_path = NULL, worktree_branch = NULL, worktree_base_branch = NULL, worktree_commit = NULL, updated_at = ? WHERE id = ?
+    `).run(now, id)
     return this.findById(id)
   }
 

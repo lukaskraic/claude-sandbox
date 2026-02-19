@@ -27,6 +27,7 @@ export const sessionRouter = t.router({
       projectId: z.string(),
       name: z.string(),
       branch: z.string().optional(),
+      worktreePath: z.string().optional(),
       claudeSourceUser: z.string().optional(),
       gitUserName: z.string().optional(),
       gitUserEmail: z.string().optional(),
@@ -38,6 +39,7 @@ export const sessionRouter = t.router({
         {
           name: input.name,
           branch: input.branch,
+          worktreePath: input.worktreePath,
           claudeSourceUser: input.claudeSourceUser,
           gitUserName: input.gitUserName,
           gitUserEmail: input.gitUserEmail,

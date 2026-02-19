@@ -6,6 +6,7 @@ import type { GitService } from '../services/GitService.js'
 import type { ContainerService } from '../services/ContainerService.js'
 import type { ImageBuilderService } from '../services/ImageBuilderService.js'
 import type { AuthService } from '../services/AuthService.js'
+import type { WorktreeService } from '../services/WorktreeService.js'
 import type { Config } from '../config.js'
 
 export interface Services {
@@ -15,6 +16,7 @@ export interface Services {
   containerService: ContainerService
   imageBuilderService: ImageBuilderService
   authService: AuthService
+  worktreeService: WorktreeService
 }
 
 export interface Context {
