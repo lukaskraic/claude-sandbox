@@ -161,15 +161,16 @@ export class SessionService {
         worktreePath = session.worktree.path
         try {
           await fs.access(worktreePath)
-          await this.gitService.verifyAndRepairWorktree(repoPath, worktreePath)
-          const worktreeGit = (await import('simple-git')).simpleGit(worktreePath)
-          const status = await worktreeGit.status()
-          const log = await worktreeGit.log({ maxCount: 1 })
-          this.sessionRepo.updateWorktree(id, worktreePath, status.current || 'HEAD', baseBranch, log.latest?.hash || '')
-          logger.info('Reusing existing worktree', { sessionId: id, worktreePath })
+          const repaired = await this.gitService.verifyAndRepairWorktree(repoPath, worktreePath)
+          if (!repaired) {
+            throw new Error('Worktree git link could not be repaired')
+          }
+          const { stdout: branch } = await execAsync(`git -C "${worktreePath}" -c safe.directory="*" rev-parse --abbrev-ref HEAD`)
+          const { stdout: commit } = await execAsync(`git -C "${worktreePath}" -c safe.directory="*" rev-parse HEAD`)
+          this.sessionRepo.updateWorktree(id, worktreePath, branch.trim() || 'HEAD', baseBranch, commit.trim())
+          logger.info('Reusing existing worktree', { sessionId: id, worktreePath, branch: branch.trim() })
         } catch (err) {
           logger.warn('Existing worktree not accessible, creating new one', { sessionId: id, worktreePath, error: err })
-          // Fall through to create new worktree
           const branch = session.worktree?.branch || `session/${session.id.slice(0, 8)}`
           worktreePath = path.join(this.config.worktreeBase, project.name, session.id)
           const commit = await this.gitService.createWorktree(repoPath, worktreePath, branch, baseBranch)
@@ -214,18 +215,17 @@ export class SessionService {
         const userIds = await getUserIds(session.claudeSourceUser)
         if (userIds) {
           try {
-            // Use ACL to grant rwx to container user without removing server user's access
-            // -R = recursive, -m = modify ACL, rwX = read/write/execute(dirs only)
-            // File owner (claude-sandbox) can set ACL without sudo
-            await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${worktreePath}`)
-            await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${worktreePath}`)
+            // Use sudo setfacl - subdirectories may be owned by other container users
+            // who previously used this worktree/repo, so unprivileged setfacl would fail
+            await execAsync(`sudo setfacl -Rm u:${userIds.uid}:rwX ${worktreePath}`)
+            await execAsync(`sudo setfacl -Rdm u:${userIds.uid}:rwX ${worktreePath}`)
             logger.info('Added ACL for container user on worktree', { sessionId: id, path: worktreePath, uid: userIds.uid })
 
             // Add ACL to entire .git directory in main repo
             // Git needs write access to: .git/objects/, .git/worktrees/, .git/refs/, etc.
             const gitDirPath = path.join(repoPath, '.git')
-            await execAsync(`setfacl -Rm u:${userIds.uid}:rwX ${gitDirPath}`)
-            await execAsync(`setfacl -Rdm u:${userIds.uid}:rwX ${gitDirPath}`)
+            await execAsync(`sudo setfacl -Rm u:${userIds.uid}:rwX ${gitDirPath}`)
+            await execAsync(`sudo setfacl -Rdm u:${userIds.uid}:rwX ${gitDirPath}`)
             logger.info('Added ACL for container user on .git directory', { sessionId: id, path: gitDirPath, uid: userIds.uid })
           } catch (err) {
             logger.warn('Failed to add ACL for container user', { sessionId: id, error: err })
@@ -666,7 +666,7 @@ export class SessionService {
     // Clean up per-session claude-state directory
     const claudeStatePath = path.join(this.config.dataDir, 'claude-state', id)
     try {
-      await fs.rm(claudeStatePath, { recursive: true, force: true })
+      await execAsync(`sudo rm -rf ${claudeStatePath}`)
       logger.info('Removed claude-state', { path: claudeStatePath })
     } catch (error) {
       logger.warn('Failed to remove claude-state', { path: claudeStatePath, error })

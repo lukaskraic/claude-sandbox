@@ -219,9 +219,30 @@ export class GitService {
       logger.info('Repaired worktree .git file', { worktreePath, gitdir: expectedGitdir })
       return true
     } catch {
-      // Worktree entry doesn't exist in main repo - cannot repair
-      logger.warn('Cannot repair worktree - no entry in main repo', { worktreePath, expectedGitdir })
-      return false
+      // Worktree entry doesn't exist in main repo - fully re-create it
+      logger.info('Re-creating worktree entry in main repo', { worktreePath, expectedGitdir })
+      try {
+        const git = simpleGit(repoPath)
+        const log = await git.log({ maxCount: 1 })
+        const headCommit = log.latest?.hash
+        if (!headCommit) {
+          logger.warn('Cannot repair worktree - no commits in repo', { repoPath })
+          return false
+        }
+
+        await fs.mkdir(expectedGitdir, { recursive: true })
+        await fs.writeFile(path.join(expectedGitdir, 'gitdir'), `${worktreePath}/.git\n`)
+        await fs.writeFile(path.join(expectedGitdir, 'HEAD'), `${headCommit}\n`)
+        await fs.writeFile(path.join(expectedGitdir, 'commondir'), `../..\n`)
+
+        // Create .git file in worktree pointing to main repo entry
+        await fs.writeFile(gitFile, `gitdir: ${expectedGitdir}\n`)
+        logger.info('Fully repaired worktree git link', { worktreePath, expectedGitdir, head: headCommit })
+        return true
+      } catch (repairErr) {
+        logger.warn('Failed to re-create worktree entry', { worktreePath, error: repairErr })
+        return false
+      }
     }
   }
 }

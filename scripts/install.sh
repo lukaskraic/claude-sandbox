@@ -248,6 +248,7 @@ sudo tee /etc/sudoers.d/claude-sandbox > /dev/null << 'SUDOERS'
 # Claude Sandbox service permissions
 # Allows service to copy user files for session isolation and manage containers
 claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/cp
+claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/rm -rf /srv/claude-sandbox/worktrees/*, /usr/bin/rm -rf /srv/claude-sandbox/data/claude-state/*
 claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/setfacl
 claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/podman *
 claude-sandbox ALL=(ALL) NOPASSWD: /usr/bin/docker *

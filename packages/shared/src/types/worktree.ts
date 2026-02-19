@@ -13,4 +13,9 @@ export interface WorktreeInfo {
   }
   claudeStateExists: boolean
   lastModified?: string
+  diffSummary?: {
+    filesChanged: number
+    insertions: number
+    deletions: number
+  }
 }

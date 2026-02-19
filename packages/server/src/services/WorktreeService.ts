@@ -1,11 +1,16 @@
 import path from 'path'
 import { promises as fs } from 'fs'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import { simpleGit } from 'simple-git'
 import { logger } from '../logger.js'
 import type { GitService } from './GitService.js'
 import type { SessionRepository } from '../db/repositories/SessionRepository.js'
 import type { ProjectRepository } from '../db/repositories/ProjectRepository.js'
 import type { Config } from '../config.js'
 import type { WorktreeInfo } from '@claude-sandbox/shared'
+
+const execAsync = promisify(exec)
 
 export class WorktreeService {
   constructor(
@@ -18,7 +23,6 @@ export class WorktreeService {
   async listAll(): Promise<WorktreeInfo[]> {
     const results: WorktreeInfo[] = []
     const sessions = this.sessionRepo.findAll()
-    const projects = this.projectRepo.findAll()
 
     // Build worktree_path → session lookup
     const sessionByPath = new Map<string, { id: string; name: string; status: string }>()
@@ -83,6 +87,39 @@ export class WorktreeService {
           lastModified = stat.mtime.toISOString()
         } catch {}
 
+        // Get diff summary using git CLI with safe.directory bypass (worktrees may be owned by container users)
+        let diffSummary: WorktreeInfo['diffSummary']
+        try {
+          const gitCmd = `git -C "${wtPath}" -c safe.directory="*"`
+          const { stdout: shortstat } = await execAsync(`${gitCmd} diff --shortstat`)
+          const { stdout: porcelain } = await execAsync(`${gitCmd} status --porcelain`)
+
+          // Parse --shortstat: " 3 files changed, 10 insertions(+), 5 deletions(-)"
+          let trackedFiles = 0, insertions = 0, deletions = 0
+          const statMatch = shortstat.match(/(\d+) file/)
+          if (statMatch) trackedFiles = parseInt(statMatch[1])
+          const insMatch = shortstat.match(/(\d+) insertion/)
+          if (insMatch) insertions = parseInt(insMatch[1])
+          const delMatch = shortstat.match(/(\d+) deletion/)
+          if (delMatch) deletions = parseInt(delMatch[1])
+
+          // Count untracked files from porcelain status (lines starting with "??")
+          const untrackedCount = porcelain.split('\n').filter(l => l.startsWith('??')).length
+          // Count modified/added/deleted from porcelain (non-empty, non-untracked)
+          const stagedOrModified = porcelain.split('\n').filter(l => l.length > 0 && !l.startsWith('??')).length
+          const totalFiles = Math.max(trackedFiles, stagedOrModified) + untrackedCount
+
+          if (totalFiles > 0) {
+            diffSummary = {
+              filesChanged: totalFiles,
+              insertions,
+              deletions,
+            }
+          }
+        } catch (err) {
+          logger.warn('Failed to get diff for worktree', { path: wtPath, error: (err as Error).message })
+        }
+
         results.push({
           path: wtPath,
           branch: gitInfo?.branch || 'unknown',
@@ -96,6 +133,7 @@ export class WorktreeService {
           } : undefined,
           claudeStateExists,
           lastModified,
+          diffSummary,
         })
 
         // Remove from gitWorktrees so we don't double-count
@@ -103,11 +141,8 @@ export class WorktreeService {
       }
 
       // Add any git worktrees that exist in git but weren't found on filesystem scan
-      // (shouldn't happen normally but handles edge cases)
       for (const [wtPath, gitInfo] of gitWorktrees) {
-        // Skip the main repo worktree
         if (wtPath === repoPath) continue
-        // Skip worktrees outside our worktree base
         if (!wtPath.startsWith(worktreeDir)) continue
 
         const dirName = path.basename(wtPath)
@@ -163,30 +198,51 @@ export class WorktreeService {
         if (s.status === 'running' || s.status === 'starting') {
           throw new Error(`Cannot delete worktree: session "${s.name}" is ${s.status}`)
         }
-        // Clear worktree reference from stopped/error sessions
         this.sessionRepo.clearWorktree(s.id)
         logger.info('Cleared worktree reference from session', { sessionId: s.id, sessionName: s.name })
       }
     }
 
-    // Determine repo path from worktree path: {worktreeBase}/{projectName}/{id}
     const projectName = path.basename(path.dirname(resolved))
     const repoPath = path.join(this.config.dataDir, 'repos', projectName)
     const dirName = path.basename(resolved)
 
-    // Try git worktree remove first, fall back to direct fs removal
+    // Try git worktree remove first
     try {
       await this.gitService.removeWorktree(repoPath, resolved)
     } catch (err) {
-      logger.warn('git worktree remove failed, removing directory directly', { path: resolved, error: err })
-      await fs.rm(resolved, { recursive: true, force: true })
+      logger.warn('git worktree remove failed, using sudo rm -rf', { path: resolved, error: err })
+      // Worktree dirs may have files owned by different users (container UIDs)
+      // Requires sudoers: claude-sandbox NOPASSWD: /usr/bin/rm -rf /srv/claude-sandbox/worktrees/*
+      try {
+        await execAsync(`sudo rm -rf ${resolved}`)
+      } catch (rmErr) {
+        logger.error('Failed to delete worktree directory', { path: resolved, error: rmErr })
+        throw new Error(`Failed to delete worktree: permission denied`)
+      }
+    }
+
+    // Prune stale worktree references from git
+    try {
+      const git = simpleGit(repoPath)
+      await git.raw(['worktree', 'prune'])
+    } catch {}
+
+    // Verify deletion
+    try {
+      await fs.access(resolved)
+      // Still exists - throw error
+      throw new Error(`Worktree directory still exists after deletion attempt`)
+    } catch (err: any) {
+      if (err.code !== 'ENOENT') throw err
+      // ENOENT = directory gone = success
     }
 
     // Clean up claude-state if requested
     if (cleanClaudeState) {
       const claudeStatePath = path.join(this.config.dataDir, 'claude-state', dirName)
       try {
-        await fs.rm(claudeStatePath, { recursive: true, force: true })
+        await execAsync(`sudo rm -rf ${claudeStatePath}`)
         logger.info('Removed claude-state', { path: claudeStatePath })
       } catch {}
     }

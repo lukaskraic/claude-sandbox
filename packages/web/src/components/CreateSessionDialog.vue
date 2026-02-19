@@ -59,6 +59,14 @@
             label="Git User Email (optional)"
             hint="For git commits in this session"
             persistent-hint
+            class="mb-4"
+          />
+          <v-text-field
+            v-model="githubToken"
+            label="GitHub Token (optional)"
+            hint="For gh CLI and git push/pull operations"
+            persistent-hint
+            type="password"
           />
         </v-form>
       </v-card-text>
@@ -98,6 +106,7 @@ const claudeSourceUser = ref<string | null>(null)
 const claudeSourceUsers = ref<string[]>([])
 const gitUserName = ref('')
 const gitUserEmail = ref('')
+const githubToken = ref('')
 const loading = ref(false)
 
 const worktreeItems = computed(() =>
@@ -144,6 +153,7 @@ function close() {
   selectedWorktree.value = null
   gitUserName.value = ''
   gitUserEmail.value = ''
+  githubToken.value = ''
 }
 
 async function submit() {
@@ -159,6 +169,7 @@ async function submit() {
       claudeSourceUser: claudeSourceUser.value || undefined,
       gitUserName: gitUserName.value || undefined,
       gitUserEmail: gitUserEmail.value || undefined,
+      githubToken: githubToken.value || undefined,
     })
     emit('created')
     close()

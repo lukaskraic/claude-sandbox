@@ -405,65 +405,11 @@
     </v-row>
 
     <!-- Create Session Dialog -->
-    <v-dialog v-model="showCreateSession" max-width="450">
-      <v-card>
-        <v-card-title>
-          <v-icon class="mr-2">mdi-plus-circle</v-icon>
-          Create Session
-        </v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="newSessionName"
-            label="Session Name"
-            hint="A descriptive name for this session"
-            autofocus
-          />
-          <v-text-field
-            v-model="newSessionBranch"
-            label="Branch (optional)"
-            hint="Leave empty to create a new session branch"
-          />
-          <v-select
-            v-if="claudeSourceUsers.length > 0"
-            v-model="newSessionClaudeUser"
-            :items="claudeSourceUsers"
-            label="Claude Source User"
-            hint="User whose .claude directory will be mounted"
-            persistent-hint
-            clearable
-            class="mb-2"
-          />
-          <v-text-field
-            v-model="newSessionGitUserName"
-            label="Git User Name (optional)"
-            hint="For git commits in this session"
-            persistent-hint
-            class="mb-2"
-          />
-          <v-text-field
-            v-model="newSessionGitUserEmail"
-            label="Git User Email (optional)"
-            hint="For git commits in this session"
-            persistent-hint
-            class="mb-2"
-          />
-          <v-text-field
-            v-model="newSessionGithubToken"
-            label="GitHub Token (optional)"
-            hint="For gh CLI and git push/pull operations"
-            persistent-hint
-            type="password"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="showCreateSession = false">Cancel</v-btn>
-          <v-btn color="primary" :disabled="!newSessionName" @click="createSession">
-            Create
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CreateSessionDialog
+      v-model="showCreateSession"
+      :project-id="route.params.id as string"
+      @created="onSessionCreated"
+    />
 
     <!-- Delete Session Confirmation Dialog -->
     <v-dialog v-model="showDeleteConfirm" max-width="400">
@@ -503,6 +449,7 @@ import { trpc } from '@/api/trpc'
 import type { SessionStatus, ProjectImage, ServiceType } from '@claude-sandbox/shared'
 import EditProjectDialog from '@/components/EditProjectDialog.vue'
 import ContainerManagement from '@/components/ContainerManagement.vue'
+import CreateSessionDialog from '@/components/CreateSessionDialog.vue'
 
 const route = useRoute()
 const projectStore = useProjectStore()
@@ -513,13 +460,6 @@ const showEditProject = ref(false)
 const showDeleteConfirm = ref(false)
 const sessionToDelete = ref<string | null>(null)
 const deletingSession = ref(false)
-const newSessionName = ref('')
-const newSessionBranch = ref('')
-const newSessionClaudeUser = ref<string | null>(null)
-const newSessionGitUserName = ref('')
-const newSessionGitUserEmail = ref('')
-const newSessionGithubToken = ref('')
-const claudeSourceUsers = ref<string[]>([])
 const imageStatus = ref<ProjectImage | null>(null)
 const rebuildingImage = ref(false)
 const sessionLoading = ref<Record<string, boolean>>({})
@@ -588,12 +528,6 @@ onMounted(async () => {
   // Start polling if any sessions are transitioning
   if (hasTransitioningSessions.value) {
     startPolling()
-  }
-
-  try {
-    claudeSourceUsers.value = await trpc.session.claudeSourceUsers.query()
-  } catch (err) {
-    console.error('Failed to load claude source users:', err)
   }
 
   await loadImageStatus()
@@ -715,24 +649,7 @@ function serviceIcon(type: ServiceType): string {
   return icons[type] || 'mdi-database'
 }
 
-async function createSession() {
-  if (!newSessionName.value) return
-  await sessionStore.createSession(route.params.id as string, {
-    name: newSessionName.value,
-    branch: newSessionBranch.value || undefined,
-    claudeSourceUser: newSessionClaudeUser.value || undefined,
-    gitUserName: newSessionGitUserName.value || undefined,
-    gitUserEmail: newSessionGitUserEmail.value || undefined,
-    githubToken: newSessionGithubToken.value || undefined,
-  })
-  showCreateSession.value = false
-  newSessionName.value = ''
-  newSessionBranch.value = ''
-  newSessionClaudeUser.value = null
-  newSessionGitUserName.value = ''
-  newSessionGitUserEmail.value = ''
-  newSessionGithubToken.value = ''
-  // Refetch to get fresh data
+async function onSessionCreated() {
   await sessionStore.fetchSessions()
 }
 

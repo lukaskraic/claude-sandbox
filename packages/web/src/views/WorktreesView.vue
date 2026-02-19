@@ -67,6 +67,7 @@
               <th>Project</th>
               <th>Branch</th>
               <th>Commit</th>
+              <th>Changes</th>
               <th>Session</th>
               <th>Claude State</th>
               <th>Last Modified</th>
@@ -83,6 +84,14 @@
               <td>{{ wt.branch }}</td>
               <td>
                 <code>{{ wt.commit.slice(0, 8) }}</code>
+              </td>
+              <td>
+                <span v-if="wt.diffSummary" class="text-body-2">
+                  <span class="text-success">+{{ wt.diffSummary.insertions }}</span>
+                  <span class="text-error ml-1">-{{ wt.diffSummary.deletions }}</span>
+                  <span class="text-grey ml-1">({{ wt.diffSummary.filesChanged }} files)</span>
+                </span>
+                <span v-else class="text-grey text-body-2">clean</span>
               </td>
               <td>
                 <router-link v-if="wt.session" :to="`/sessions/${wt.session.id}`">
