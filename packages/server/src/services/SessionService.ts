@@ -316,6 +316,20 @@ export class SessionService {
           })
           logger.info('Mounting session .claude directory', { sessionId: id, source: sessionClaudeDir, target: claudeSourcePath })
 
+          // Mount credentials directly from source user so token refreshes are always current
+          const sourceCredentials = `${claudeSourcePath}/.credentials.json`
+          try {
+            await fs.access(sourceCredentials)
+            mounts.push({
+              source: sourceCredentials,
+              target: `${claudeSourcePath}/.credentials.json`,
+              readonly: true,
+            })
+            logger.info('Mounting credentials from source user', { sessionId: id })
+          } catch {
+            logger.warn('Source credentials not found, using session copy', { sessionId: id })
+          }
+
           mounts.push({
             source: sessionClaudeJson,
             target: `${claudeUserHome}/.claude.json`,
