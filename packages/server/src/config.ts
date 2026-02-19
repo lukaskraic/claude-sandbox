@@ -20,6 +20,8 @@ export type Config = z.infer<typeof configSchema>
 export function loadConfig(): Config {
   const claudeUsers = process.env.CLAUDE_SOURCE_USERS?.split(',').filter(Boolean) || [
     'licencieclaude13',
+    'licencieclaude14',
+    'licencieclaude16',
     'licencieclaude21',
     'kula',
   ]
